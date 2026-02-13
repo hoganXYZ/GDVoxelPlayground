@@ -129,7 +129,7 @@ void VoxelWorld::init()
     if (voxel_count * sizeof(Voxel) > 4.0e9f)
     {
         UtilityFunctions::printerr(
-            "VoxelWorld: The voxel world is too large (exceeds 4GB, or 2 billion voxels). Reduce the brick map size.");
+            "VoxelWorld: The voxel world is too large (exceeds 4GB, or 1 billion voxels). Reduce the brick map size.");
         return;
     }
     voxel_data.resize(voxel_count * sizeof(Voxel));
