@@ -200,12 +200,12 @@ struct VoxelWorldRIDs
 };
 } // namespace godot
 
-template <> struct std::hash<Voxel>
-{
-    size_t operator()(const Voxel &v) const noexcept
-    {
-        return std::hash<uint32_t>{}(v.data);
-    }
-};
+// template <> struct std::hash<Voxel>
+// {
+//     size_t operator()(const Voxel &v) const noexcept
+//     {
+//         return std::hash<uint32_t>{}(v.data);
+//     }
+// };
 
 #endif // VOXEL_WORLD_PROPERTIES_H

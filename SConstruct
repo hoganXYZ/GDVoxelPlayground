@@ -18,9 +18,9 @@ env.Append(CPPPATH=[
     "src/voxel_world/generator/",
     "src/voxel_world/generator/cpu_passes/",
     "src/voxel_world/generator/cpu_passes/wave_function_collapse/",
-    "src/voxel_world/cellular_automata/"
-    "src/voxel_world/voxel_edit/"
-    "src/voxel_world/colliders/"
+    "src/voxel_world/cellular_automata/",
+    "src/voxel_world/voxel_edit/",
+    "src/voxel_world/colliders/",
     "src/voxel_world/data/"
 ])
 
