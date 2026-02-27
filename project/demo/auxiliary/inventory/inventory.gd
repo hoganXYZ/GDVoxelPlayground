@@ -28,3 +28,5 @@ func _input(event: InputEvent) -> void:
 				select_slot(2)
 			KEY_4:
 				select_slot(3)
+			KEY_5:
+				select_slot(4)

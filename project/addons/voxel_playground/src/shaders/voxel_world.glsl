@@ -48,8 +48,10 @@ const uint VOXEL_TYPE_SOLID = 1;
 const uint VOXEL_TYPE_WATER = 2;
 const uint VOXEL_TYPE_LAVA = 3;
 const uint VOXEL_TYPE_SAND = 4;
+const uint VOXEL_TYPE_VINE = 5;
 const vec3 DEFAULT_WATER_COLOR = vec3(0.1, 0.3, 0.8);
 const vec3 DEFAULT_LAVA_COLOR = vec3(4.0, 0.6, 0.1);
+const vec3 DEFAULT_VINE_COLOR = vec3(0.15, 0.55, 0.18);
 
 Voxel createVoxel(uint type, vec3 color) {
     Voxel voxel;
@@ -91,6 +93,17 @@ Voxel createRockVoxel(ivec3 pos) {
     return createVoxel(VOXEL_TYPE_SOLID, color);
 }
 
+Voxel createVineVoxel(ivec3 pos, uint energy) {
+    vec3 color = randomizedColor(DEFAULT_VINE_COLOR, pos);
+    Voxel voxel = createVoxel(VOXEL_TYPE_VINE, color);
+    voxel.data |= (energy & 0xFFu);
+    return voxel;
+}
+
+uint getVineEnergy(Voxel voxel) {
+    return voxel.data & 0xFFu;
+}
+
 bool isVoxelType(Voxel voxel, uint type) {
     return ((voxel.data >> 24) & 0xFF) == (type & 0xFF);
 }
@@ -112,7 +125,7 @@ bool isVoxelSolid(Voxel voxel) {
 }
 
 bool isVoxelDynamic(Voxel voxel) {
-    return isVoxelLiquid(voxel) || isVoxelType(voxel, VOXEL_TYPE_SAND);
+    return isVoxelLiquid(voxel) || isVoxelType(voxel, VOXEL_TYPE_SAND) || isVoxelType(voxel, VOXEL_TYPE_VINE);
 }
 
 vec3 getVoxelColor(Voxel voxel, ivec3 pos) {

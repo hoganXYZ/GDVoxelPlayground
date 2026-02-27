@@ -24,6 +24,7 @@ class VoxelWorldUpdatePass
   private:
     ComputeShader *automata_cs_1 = nullptr;
     ComputeShader *automata_cs_2 = nullptr;
+    ComputeShader *vine_growth_shader = nullptr;
     ComputeShader *cleanup_shader = nullptr;
     Vector3i _size;
 };

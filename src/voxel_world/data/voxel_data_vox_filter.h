@@ -22,7 +22,8 @@ public:
         VOXEL_TYPE_SOLID = 1,
         VOXEL_TYPE_WATER = 2,
         VOXEL_TYPE_LAVA  = 3,
-        VOXEL_TYPE_SAND  = 4
+        VOXEL_TYPE_SAND  = 4,
+        VOXEL_TYPE_VINE  = 5
     };
 
     VoxelDataVoxFilter() : type(VOXEL_TYPE_SOLID) {} // default to solid
@@ -36,7 +37,7 @@ public:
         ClassDB::bind_method(D_METHOD("get_type"), &VoxelDataVoxFilter::get_type);
         ClassDB::bind_method(D_METHOD("set_type", "type"), &VoxelDataVoxFilter::set_type);
         ADD_PROPERTY(PropertyInfo(Variant::INT, "type", PROPERTY_HINT_ENUM, 
-            "Air:0,Solid:1,Water:2,Lava:3,Sand:4"),
+            "Air:0,Solid:1,Water:2,Lava:3,Sand:4,Vine:5"),
             "set_type", "get_type");
 
         // Expose the enum to scripts/inspector
@@ -45,6 +46,7 @@ public:
         BIND_ENUM_CONSTANT(VOXEL_TYPE_WATER);
         BIND_ENUM_CONSTANT(VOXEL_TYPE_LAVA);
         BIND_ENUM_CONSTANT(VOXEL_TYPE_SAND);
+        BIND_ENUM_CONSTANT(VOXEL_TYPE_VINE);
     }
 
     PackedInt32Array get_palette_indices() const { return palette_indices; }
