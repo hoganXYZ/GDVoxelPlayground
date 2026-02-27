@@ -135,7 +135,7 @@ class VoxelDataVox : public VoxelData
     bool add_color_noise = false;
 
     // bool swap_y_z = true; // MagicaVoxel uses Z-up, Godot uses Y-up, so we need to swap Y and Z axes when loading
-    static const uint32_t VoxelDataVox::DEFAULT_VOX_PALETTE_ABGR[256];
+    static const uint32_t DEFAULT_VOX_PALETTE_ABGR[256];
 };
 
 #endif // VOXEL_DATA_VOX_H

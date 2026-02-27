@@ -31,7 +31,7 @@ public:
         add_color_noise = p_add_color_noise;
     }
 
-    virtual bool generate(std::vector<Voxel> &result_voxels, const Vector3i bounds_min, const Vector3i bounds_max, const VoxelWorldProperties &properties) = 0;
+    virtual bool generate(std::vector<Voxel> &result_voxels, const Vector3i bounds_min, const Vector3i bounds_max, const VoxelWorldProperties &properties) override = 0;
 
     static void _bind_methods() {
         ClassDB::bind_method(D_METHOD("set_voxel_scale", "scale"), &WaveFunctionCollapseGenerator::set_voxel_scale);

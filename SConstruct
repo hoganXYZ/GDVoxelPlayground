@@ -41,6 +41,7 @@ if env['PLATFORM'] == 'windows':
 
 # Handle different platforms
 if env["platform"] == "macos":
+    env['SHLIBPREFIX'] = ''
     library = env.SharedLibrary(
         "project/addons/voxel_playground/bin/voxel_playground.{}.{}.framework/voxel_playground.{}.{}".format(
             env["platform"], env["target"], env["platform"], env["target"]

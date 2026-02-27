@@ -332,23 +332,20 @@ bool VoxelWorldWFCAdjacencyGenerator::generate(std::vector<Voxel> &result_voxels
     const bool use_alpha = false;
     const float alpha = 0.25;
 
-    Neighborhood &ngh = Moore(neighborhood_radius, use_exhaustive_offsets);
+    std::unique_ptr<NeighborhoodBase> ngh = std::make_unique<Moore>(neighborhood_radius, use_exhaustive_offsets);
 
     switch (neighborhood_type)
     {
-    // case NEIGHBORHOOD_MOORE:
-    //     ngh = Moore(neighborhood_radius, use_exhaustive_offsets);
-    //     break;    
     case NEIGHBORHOOD_VON_NEUMANN:
-        ngh = VonNeumann(neighborhood_radius, use_exhaustive_offsets);
+        ngh = std::make_unique<VonNeumann>(neighborhood_radius, use_exhaustive_offsets);
         break;
     default:
         break;
     }
 
-    const int K = ngh.get_K();
+    const int K = ngh->get_K();
 
-    auto model = build_model_from_voxels(voxel_data, training_size, ngh, use_alpha, alpha);
+    auto model = build_model_from_voxels(voxel_data, training_size, *ngh, use_alpha, alpha);
     model.debug_print();
 
     // Initialize RNG
@@ -531,8 +528,8 @@ bool VoxelWorldWFCAdjacencyGenerator::generate(std::vector<Voxel> &result_voxels
             }
 
             // Propagate constraints from collapsed cells
-            const auto &offs = ngh.offsets();
-            const int K = ngh.get_K();
+            const auto &offs = ngh->offsets();
+            const int K = ngh->get_K();
             for (size_t c = 0; c < collapsed_indices.size(); ++c)
             {
                 int idx = collapsed_indices[c];
@@ -577,7 +574,7 @@ bool VoxelWorldWFCAdjacencyGenerator::generate(std::vector<Voxel> &result_voxels
         heap.push({seed_sp->entropy, seed_idx, seed_sp->version});
     }
 
-    const auto &offs = ngh.offsets();
+    const auto &offs = ngh->offsets();
 
     // 6) Main loop
     while (!heap.empty())

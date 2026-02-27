@@ -1,5 +1,5 @@
 #include "voxel_properties.h"
-
+using namespace godot;
 const Color Voxel::DEFAULT_WATER_COLOR = Color(0.1, 0.3, 0.8);
 const Color Voxel::DEFAULT_LAVA_COLOR  = Color(4.0, 0.6, 0.1);
 

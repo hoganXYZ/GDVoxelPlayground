@@ -614,15 +614,12 @@ bool VoxelWorldWFCPatternGenerator::generate(std::vector<Voxel> &result_voxels, 
     }
     voxel_data->load();
 
-    Neighborhood &ngh = Moore(neighborhood_radius, use_exhaustive_offsets);
+    std::unique_ptr<NeighborhoodBase> ngh = std::make_unique<Moore>(neighborhood_radius, use_exhaustive_offsets);
 
     switch (neighborhood_type)
     {
-    // case NEIGHBORHOOD_MOORE:
-    //     ngh = Moore(neighborhood_radius, use_exhaustive_offsets);
-    //     break;
     case NEIGHBORHOOD_VON_NEUMANN:
-        ngh = VonNeumann(neighborhood_radius, use_exhaustive_offsets);
+        ngh = std::make_unique<VonNeumann>(neighborhood_radius, use_exhaustive_offsets);
         break;
     default:
         break;
@@ -630,7 +627,7 @@ bool VoxelWorldWFCPatternGenerator::generate(std::vector<Voxel> &result_voxels, 
 
     // Template extraction
     const Vector3i template_size = voxel_data->get_size();
-    PatternModel model = build_pattern_model_from_neighborhood(voxel_data, template_size, ngh);
+    PatternModel model = build_pattern_model_from_neighborhood(voxel_data, template_size, *ngh);
     const int P = static_cast<int>(model.patterns.size());
     if (P == 0)
     {
@@ -896,9 +893,9 @@ bool VoxelWorldWFCPatternGenerator::generate(std::vector<Voxel> &result_voxels, 
                 for (int pid = 0; pid < P; ++pid)
                 {
                     bool match = true;
-                    for (int k = 0; k < ngh.get_K() + 1; ++k)
+                    for (int k = 0; k < ngh->get_K() + 1; ++k)
                     {
-                        const Vector3i off = ngh.pattern()[k];
+                        const Vector3i off = ngh->pattern()[k];
                         const auto v = get_initial_voxel(c_world + off);
                         const auto &pattern_voxel = model.patterns[pid].voxels[k];
                         if (!v.is_air() && v != pattern_voxel)
@@ -965,7 +962,7 @@ bool VoxelWorldWFCPatternGenerator::generate(std::vector<Voxel> &result_voxels, 
             }
 
             // 3) Apply constraints from collapsed cells to their neighbors.
-            const auto &deltas = ngh.center_deltas();
+            const auto &deltas = ngh->center_deltas();
             const int D = (int)deltas.size();
 
             for (size_t ci = 0; ci < collapsed_indices.size(); ++ci)
@@ -1079,7 +1076,7 @@ bool VoxelWorldWFCPatternGenerator::generate(std::vector<Voxel> &result_voxels, 
             heap.push(HeapNode{seed_sp->entropy, seed_idx, seed_sp->version, global_tick++});
     }
 
-    const auto &deltas = ngh.center_deltas();
+    const auto &deltas = ngh->center_deltas();
     const int D = static_cast<int>(deltas.size());
 
     // Main loop
