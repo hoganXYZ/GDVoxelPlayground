@@ -11,6 +11,7 @@
 #include "voxel_world/generator/cpu_passes/wave_function_collapse/voxel_world_wfc_pattern_generator.h"
 #include "voxel_world/generator/cpu_passes/wave_function_collapse/voxel_world_wfc_tile_generator.h"
 #include "voxel_world/data/voxel_data_vox.h"
+#include "voxel_world/cellular_automata/cellpond_rule_set.h"
 
 using namespace godot;
 
@@ -36,6 +37,8 @@ void initialize_voxel_playground_module(ModuleInitializationLevel p_level)
         GDREGISTER_CLASS(WaveFunctionCollapseTile);
         GDREGISTER_CLASS(VoxelWorldWFCTileGenerator);
         
+
+        GDREGISTER_CLASS(CellPondRuleSet);
 
         GDREGISTER_CLASS(VoxelCamera);
         GDREGISTER_CLASS(VoxelWorldCollider);

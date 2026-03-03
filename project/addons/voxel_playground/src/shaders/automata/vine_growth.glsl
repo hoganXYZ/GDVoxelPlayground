@@ -26,6 +26,21 @@ bool hasSolidNeighbor(ivec3 pos) {
     return false;
 }
 
+// Count how many vine voxels surround a target position
+int countVineNeighbors(ivec3 targetPos) {
+    int count = 0;
+    for (int i = 0; i < 6; i++) {
+        ivec3 neighbor = targetPos + vine_directions[i];
+        if (isValidPos(neighbor)) {
+            Voxel v = getPreviousVoxel(posToIndex(neighbor));
+            if (isVoxelType(v, VOXEL_TYPE_VINE)) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
 // Pick a growth direction with upward bias
 // 40% up, 10% each sideways (x4 = 40%), 20% down
 uint pickGrowthDirection(uvec4 random_value) {
@@ -76,7 +91,12 @@ void main() {
     // Surface-clinging rule: target must have at least one solid neighbor
     if (!hasSolidNeighbor(newPos)) return;
 
-    // Place new vine with reduced energy
+    // NEW: Crowding Rule
+    // A target air block should only be touching the parent vine (1 neighbor). 
+    // If it touches > 1, growing here would fuse branches or create thick blobs.
+    if (countVineNeighbors(newPos) > 1) return;
+
+    // Place new vine tip with reduced energy
     Voxel new_vine = createVineVoxel(newPos, energy - 1u);
 
     // Thread-safe placement via atomic compare-and-swap
@@ -86,4 +106,13 @@ void main() {
         original = atomicCompSwap(voxelData[new_voxel_index].data, expected, new_vine.data);
     else
         original = atomicCompSwap(voxelData2[new_voxel_index].data, expected, new_vine.data);
+
+    // NEW: Exhaustion Rule (Tip -> Stem)
+    // If original == expected, our atomic swap was successful and WE spawned the child.
+    if (original == expected) {
+        // Overwrite the parent (this thread's voxel) in the current buffer 
+        // with 0 energy so it stops growing. It becomes a passive stem.
+        Voxel stem_vine = createVineVoxel(pos, 0u); 
+        setVoxel(voxel_index, stem_vine);
+    }
 }

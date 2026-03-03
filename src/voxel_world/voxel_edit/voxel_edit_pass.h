@@ -40,6 +40,7 @@ class VoxelEditPass
     void edit_using_raycast(const Vector3 &camera_origin, const Vector3 &camera_direction, const float radius,
                             const float range, const int value);
     void edit_at(const Vector3 &position, const float radius, const int value);
+    Vector3 raycast(const Vector3 &camera_origin, const Vector3 &camera_direction, const float range);
 
   private:
     ComputeShader *ray_cast_shader = nullptr;

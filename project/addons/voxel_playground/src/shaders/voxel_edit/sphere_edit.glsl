@@ -28,17 +28,37 @@ void main() {
         uint voxel_index = voxelBricks[brick_index].voxel_data_pointer * BRICK_VOLUME + getVoxelIndexInBrick(world_pos);     
         bool isAir = isVoxelAir(getVoxel(voxel_index));
 
+        // value encoding:
+        //   Legacy: value 0-5 (material selection index, hardcoded colors)
+        //   Custom: (voxel_type << 24) | (1 << 16) | color16
+        //     bit 16 = custom color flag
+        //     bits 0-15 = 16-bit packed HSV color
+        //     bits 24-31 = actual voxel type constant
+
         Voxel voxel = createAirVoxel();
-        if(params.value == 1)
-            voxel = createRockVoxel(world_pos);
-        if(params.value == 2)
-            voxel = createSandVoxel(world_pos);
-        if (params.value == 3)
-            voxel = createWaterVoxel(world_pos);
-        if (params.value == 4)
-            voxel = createLavaVoxel(world_pos);
-        if (params.value == 5)
-            voxel = createVineVoxel(world_pos, 15u);
+        bool has_custom_color = (params.value & (1u << 16u)) != 0u;
+
+        if (has_custom_color) {
+            uint voxel_type = (params.value >> 24u) & 0xFFu;
+            uint color16 = params.value & 0xFFFFu;
+            // Pack voxel data directly to avoid HSV→RGB→HSV round-trip precision loss
+            voxel.data = int((voxel_type << 24u) | (color16 << 8u));
+            if (voxel_type == VOXEL_TYPE_VINE) {
+                voxel.data |= 15; // energy
+            }
+        } else {
+            // Legacy path: material selection index with default colors
+            if(params.value == 1u)
+                voxel = createRockVoxel(world_pos);
+            if(params.value == 2u)
+                voxel = createSandVoxel(world_pos);
+            if(params.value == 3u)
+                voxel = createWaterVoxel(world_pos);
+            if(params.value == 4u)
+                voxel = createLavaVoxel(world_pos);
+            if(params.value == 5u)
+                voxel = createVineVoxel(world_pos, 15u);
+        }
 
         if(isAir ^^ isVoxelAir(voxel))
             setBothVoxelBuffers(voxel_index, voxel);

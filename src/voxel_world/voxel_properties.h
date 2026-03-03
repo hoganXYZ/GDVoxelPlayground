@@ -99,6 +99,10 @@ struct VoxelWorldProperties // match the struct on the gpu
     {
         grid_size = Vector4i(_grid_size.x, _grid_size.y, _grid_size.z, 0);
         brick_grid_size = Vector4i(_brick_grid_size.x, _brick_grid_size.y, _brick_grid_size.z, 0);
+        _align_pad1 = _align_pad2 = 0.0f;
+        brush_preview_position = Vector4(0, 0, 0, -1); // inactive by default
+        brush_preview_radius = 0.0f;
+        _pad1 = _pad2 = _pad3 = 0.0f;
     };
 
     void set_sky_colors(const Color &_sky_color, const Color &_ground_color)
@@ -121,6 +125,10 @@ struct VoxelWorldProperties // match the struct on the gpu
     Vector4 sun_direction;
     float scale;
     unsigned int frame;
+    float _align_pad1, _align_pad2; // padding so brush_preview_position aligns to 16 bytes (matches GLSL std430 vec4 alignment)
+    Vector4 brush_preview_position; // xyz = grid position, w = active flag (1.0 = show, -1.0 = hide)
+    float brush_preview_radius;
+    float _pad1, _pad2, _pad3; // padding for 16-byte alignment
 
     PackedByteArray to_packed_byte_array() const
     {

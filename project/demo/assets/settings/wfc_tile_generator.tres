@@ -1,4 +1,4 @@
-[gd_resource type="VoxelWorldWFCTileGenerator" load_steps=15 format=3 uid="uid://vu1oju0jkh8j"]
+[gd_resource type="VoxelWorldWFCTileGenerator" format=3 uid="uid://vu1oju0jkh8j"]
 
 [sub_resource type="VoxelDataVox" id="VoxelDataVox_j5lb4"]
 file_path = "res://demo/assets/voxels/tiles/castle_corner.vox"

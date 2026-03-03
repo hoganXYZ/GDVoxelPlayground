@@ -27,6 +27,33 @@ void VoxelWorld::edit_world(const Vector3 &camera_origin, const Vector3 &camera_
     _edit_pass->edit_using_raycast(camera_origin, camera_direction, radius, range, value);
 }
 
+void VoxelWorld::edit_world_smooth(const Vector3 &camera_origin, const Vector3 &camera_direction, const float radius,
+                                    const float range)
+{
+    if (_smooth_edit_pass == nullptr)
+        return;
+    _smooth_edit_pass->edit_using_raycast(camera_origin, camera_direction, radius, range, 0);
+}
+
+Vector3 VoxelWorld::raycast_world(const Vector3 &camera_origin, const Vector3 &camera_direction, const float range)
+{
+    if (_edit_pass == nullptr)
+        return Vector3(-1, -1, -1);
+    return _edit_pass->raycast(camera_origin, camera_direction, range);
+}
+
+void VoxelWorld::set_brush_preview(const Vector3 &position, const float radius)
+{
+    _voxel_properties.brush_preview_position = Vector4(position.x, position.y, position.z, 1.0f);
+    _voxel_properties.brush_preview_radius = radius;
+}
+
+void VoxelWorld::clear_brush_preview()
+{
+    _voxel_properties.brush_preview_position = Vector4(0, 0, 0, -1.0f);
+    _voxel_properties.brush_preview_radius = 0.0f;
+}
+
 void VoxelWorld::_bind_methods()
 {
     ClassDB::bind_method(D_METHOD("get_generator"), &VoxelWorld::get_generator);
@@ -69,9 +96,26 @@ void VoxelWorld::_bind_methods()
     ClassDB::bind_method(D_METHOD("set_sky_color", "sky_color"), &VoxelWorld::set_sky_color);
     ADD_PROPERTY(PropertyInfo(Variant::COLOR, "sky_color"), "set_sky_color", "get_sky_color");
 
+    // CellPond rules
+    ClassDB::bind_method(D_METHOD("get_cellpond_rules"), &VoxelWorld::get_cellpond_rules);
+    ClassDB::bind_method(D_METHOD("set_cellpond_rules", "rules"), &VoxelWorld::set_cellpond_rules);
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "cellpond_rules", PROPERTY_HINT_RESOURCE_TYPE, "CellPondRuleSet"),
+                 "set_cellpond_rules", "get_cellpond_rules");
+
+    ClassDB::bind_method(D_METHOD("upload_cellpond_rules"), &VoxelWorld::upload_cellpond_rules);
+    ClassDB::bind_method(D_METHOD("get_voxel_at", "grid_pos"), &VoxelWorld::get_voxel_at);
+
     // methods
     ClassDB::bind_method(D_METHOD("edit_world", "camera_origin", "camera_direction", "radius", "range", "value"),
                          &VoxelWorld::edit_world);
+    ClassDB::bind_method(D_METHOD("edit_world_smooth", "camera_origin", "camera_direction", "radius", "range"),
+                         &VoxelWorld::edit_world_smooth);
+    ClassDB::bind_method(D_METHOD("raycast_world", "camera_origin", "camera_direction", "range"),
+                         &VoxelWorld::raycast_world);
+    ClassDB::bind_method(D_METHOD("set_brush_preview", "position", "radius"),
+                         &VoxelWorld::set_brush_preview);
+    ClassDB::bind_method(D_METHOD("clear_brush_preview"),
+                         &VoxelWorld::clear_brush_preview);
 }
 
 void VoxelWorld::_notification(int p_what)
@@ -153,8 +197,16 @@ void VoxelWorld::init()
     // Create the update pass.
     _update_pass = new VoxelWorldUpdatePass("res://addons/voxel_playground/src/shaders/automata/liquid.glsl", _rd, _voxel_world_rids, size);
 
-    // Create the edit pass.
+    // Create the CellPond rule pass.
+    _cellpond_pass = new CellPondUpdatePass(_rd, _voxel_world_rids, size);
+    if (_cellpond_rules.is_valid())
+    {
+        _cellpond_pass->set_rules(_cellpond_rules->build_gpu_buffer());
+    }
+
+    // Create the edit passes.
     _edit_pass = new VoxelEditPass("res://addons/voxel_playground/src/shaders/voxel_edit/sphere_edit.glsl", _rd, _voxel_world_rids, size);
+    _smooth_edit_pass = new VoxelEditPass("res://addons/voxel_playground/src/shaders/voxel_edit/smooth_edit.glsl", _rd, _voxel_world_rids, size);
 
     // if collider set, initialize it
     if (_voxel_world_collider != nullptr)
@@ -178,8 +230,49 @@ void VoxelWorld::update(float delta)
         _update_pass->update(delta);
     }
 
+    if (_cellpond_pass != nullptr)
+    {
+        _cellpond_pass->update(delta);
+    }
+
     if (_voxel_world_collider != nullptr && player_node != nullptr)
     {
         _voxel_world_collider->update(get_voxel_world_position(player_node->get_global_position()));
     }
+}
+
+void VoxelWorld::upload_cellpond_rules()
+{
+    if (_cellpond_pass == nullptr || _cellpond_rules.is_null())
+        return;
+    _cellpond_pass->set_rules(_cellpond_rules->build_gpu_buffer());
+}
+
+Dictionary VoxelWorld::get_voxel_at(const Vector3i &grid_pos)
+{
+    Dictionary result;
+    result["type"] = 0;
+    result["color"] = Color(0, 0, 0);
+
+    if (!_initialized || _rd == nullptr)
+        return result;
+
+    if (!_voxel_properties.isValidPos(grid_pos))
+        return result;
+
+    unsigned int voxel_index = _voxel_properties.pos_to_voxel_index(grid_pos);
+
+    // Read the voxel data from GPU - read the current buffer based on frame parity
+    RID buffer_rid = (_voxel_properties.frame % 2 == 0) ? _voxel_world_rids.voxel_data : _voxel_world_rids.voxel_data2;
+    PackedByteArray data = _rd->buffer_get_data(buffer_rid, voxel_index * sizeof(Voxel), sizeof(Voxel));
+
+    if (data.size() >= static_cast<int>(sizeof(Voxel)))
+    {
+        Voxel v;
+        std::memcpy(&v, data.ptr(), sizeof(Voxel));
+        result["type"] = v.get_type();
+        result["color"] = v.get_color();
+    }
+
+    return result;
 }

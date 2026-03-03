@@ -97,6 +97,27 @@ void main() {
             float ao = computeAmbientOcclusion(hitPos, grid_position, normal) * 0.7 + 0.3;
             color = ao * blinnPhongShading(color, normal, normalize(voxelWorldProperties.sun_direction.xyz), voxelWorldProperties.sun_color.rgb, voxel_view_dir, shadow);
         }
+
+        // Brush preview overlay
+        if (voxelWorldProperties.brush_preview_position.w > 0) {
+            vec3 brush_center = voxelWorldProperties.brush_preview_position.xyz;
+            float brush_radius = voxelWorldProperties.brush_preview_radius;
+            float dist_to_brush = length(vec3(grid_position) - brush_center);
+
+            if (dist_to_brush < brush_radius) {
+                // Shell highlight: stronger near the sphere surface edge
+                float shell_thickness = max(1.0, brush_radius * 0.15);
+                float shell_dist = abs(dist_to_brush - brush_radius);
+                float shell = 1.0 - smoothstep(0.0, shell_thickness, shell_dist);
+
+                // Interior fill: subtle tint
+                float interior = 1.0 - smoothstep(0.0, brush_radius, dist_to_brush);
+
+                // Combine: bright edge ring + subtle interior
+                float highlight = shell * 0.4 + interior * 0.08;
+                color = mix(color, vec3(1.0), highlight);
+            }
+        }
     } else {
         color = sampleSkyColor(ray_dir);
     }

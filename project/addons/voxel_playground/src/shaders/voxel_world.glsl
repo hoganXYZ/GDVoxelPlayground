@@ -25,6 +25,9 @@ layout(std430, set = 0, binding = 0) buffer VoxelWorldProperties {
     vec4 sun_direction;
     float scale;
     int frame;
+    vec4 brush_preview_position; // xyz = grid position, w = active flag (1.0 = show, -1.0 = hide)
+    float brush_preview_radius;
+    float _pad1, _pad2, _pad3;
 } voxelWorldProperties;
 
 layout(std430, set = 0, binding = 1) buffer VoxelWorldBricks {

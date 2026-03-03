@@ -150,5 +150,36 @@ vec3 randomizedColor(vec3 base_color, ivec3 pos) {
     return saturate(hsv2rgb(color));
 }
 
+// ---- OKLab color space conversions ----
+
+// sRGB → linear sRGB
+vec3 srgb_to_linear(vec3 c) {
+    return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
+}
+
+// linear sRGB → sRGB
+vec3 linear_to_srgb(vec3 c) {
+    return mix(12.92 * c, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
+}
+
+// OKLab → linear sRGB
+vec3 oklab_to_linear_rgb(vec3 lab) {
+    float l_ = lab.x + 0.3963377774 * lab.y + 0.2158037573 * lab.z;
+    float m_ = lab.x - 0.1055613458 * lab.y - 0.0638541728 * lab.z;
+    float s_ = lab.x - 0.0894841775 * lab.y - 1.2914855480 * lab.z;
+    float l = l_ * l_ * l_;
+    float m = m_ * m_ * m_;
+    float s = s_ * s_ * s_;
+    return vec3(
+        +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s);
+}
+
+// OKLab → sRGB (clamped)
+vec3 oklab_to_srgb(vec3 lab) {
+    return clamp(linear_to_srgb(oklab_to_linear_rgb(lab)), 0.0, 1.0);
+}
+
 
 #endif //UTILITY_GLSL

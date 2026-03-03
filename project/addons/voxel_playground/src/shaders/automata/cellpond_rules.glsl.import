@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://c5wy1tpod78x2"
+path="res://.godot/imported/cellpond_rules.glsl-26aeaddf88f9f037ba45c3f268200190.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/automata/cellpond_rules.glsl"
+dest_files=["res://.godot/imported/cellpond_rules.glsl-26aeaddf88f9f037ba45c3f268200190.res"]
+
+[params]
+

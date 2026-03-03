@@ -9,6 +9,8 @@
 
 #include "voxel_world/voxel_properties.h"
 #include "voxel_world/cellular_automata/voxel_world_update_pass.h"
+#include "voxel_world/cellular_automata/cellpond_update_pass.h"
+#include "voxel_world/cellular_automata/cellpond_rule_set.h"
 #include "voxel_world/voxel_edit/voxel_edit_pass.h"
 #include "voxel_world/colliders/voxel_world_collider.h"
 #include "voxel_world/generator/voxel_world_generator.h"
@@ -39,8 +41,11 @@ private:
     Node3D* player_node = nullptr;
 
     Ref<VoxelWorldGenerator> generator;
+    Ref<CellPondRuleSet> _cellpond_rules;
     VoxelWorldUpdatePass* _update_pass = nullptr;
+    CellPondUpdatePass* _cellpond_pass = nullptr;
     VoxelEditPass* _edit_pass = nullptr;
+    VoxelEditPass* _smooth_edit_pass = nullptr;
     VoxelWorldCollider* _voxel_world_collider = nullptr;
 
     DirectionalLight3D* _sun_light = nullptr;
@@ -83,12 +88,21 @@ public:
     VoxelWorldCollider* get_voxel_world_collider() const { return _voxel_world_collider; }
 
     void edit_world(const Vector3 &camera_origin, const Vector3 &camera_direction, const float radius, const float range, const int value);
+    void edit_world_smooth(const Vector3 &camera_origin, const Vector3 &camera_direction, const float radius, const float range);
+    Vector3 raycast_world(const Vector3 &camera_origin, const Vector3 &camera_direction, const float range);
+    void set_brush_preview(const Vector3 &position, const float radius);
+    void clear_brush_preview();
 
     VoxelWorldRIDs get_voxel_world_rids() const { return _voxel_world_rids; }
     VoxelWorldProperties get_voxel_properties() const { return _voxel_properties; }
 
     Ref<VoxelWorldGenerator> get_generator() const { return generator;}
-    void set_generator(const Ref<VoxelWorldGenerator> p_generator) { generator = p_generator; }    
+    void set_generator(const Ref<VoxelWorldGenerator> p_generator) { generator = p_generator; }
+
+    Ref<CellPondRuleSet> get_cellpond_rules() const { return _cellpond_rules; }
+    void set_cellpond_rules(const Ref<CellPondRuleSet> p_rules) { _cellpond_rules = p_rules; }
+    void upload_cellpond_rules();
+    Dictionary get_voxel_at(const Vector3i &grid_pos);
 };
 
 #endif // VOXEL_WORLD_H

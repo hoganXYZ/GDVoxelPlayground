@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://deg8hf28idqdw"
+path="res://.godot/imported/smooth_edit.glsl-fbb3369dcc7e7ff11e7d4971aa8b6ec8.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/voxel_edit/smooth_edit.glsl"
+dest_files=["res://.godot/imported/smooth_edit.glsl-fbb3369dcc7e7ff11e7d4971aa8b6ec8.res"]
+
+[params]
+

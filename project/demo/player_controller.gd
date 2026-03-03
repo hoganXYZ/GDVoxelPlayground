@@ -21,12 +21,17 @@ func _ready() -> void:
 	set_mouse(true); 
 
 func _input(event) -> void:
+	if event.is_action_pressed("mouse_capture_mode_toggle"):
+		if Input.mouse_mode == Input.MOUSE_MODE_VISIBLE: Input.mouse_mode = Input.MOUSE_MODE_CONFINED; 
+		elif Input.mouse_mode == Input.MOUSE_MODE_CONFINED: Input.mouse_mode = Input.MOUSE_MODE_CAPTURED;
+		else: Input.mouse_mode = Input.MOUSE_MODE_VISIBLE; 
+	
 	if event.is_action_pressed("change_player_mode"):
 		is_flying = !is_flying
 	
-	if event.is_action_pressed("scroll_up"):
+	if event.is_action_pressed("up"):
 		fly_speed *= 2;
-	if event.is_action_pressed("scroll_down"):
+	if event.is_action_pressed("down"):
 		fly_speed *= 0.5;
 	fly_speed = clamp(fly_speed, MIN_MOVE_SPEED, MAX_MOVE_SPEED);
 
