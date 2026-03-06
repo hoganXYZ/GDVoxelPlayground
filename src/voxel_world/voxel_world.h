@@ -96,6 +96,12 @@ public:
     VoxelWorldRIDs get_voxel_world_rids() const { return _voxel_world_rids; }
     VoxelWorldProperties get_voxel_properties() const { return _voxel_properties; }
 
+    RID get_properties_rid() const { return _voxel_world_rids.properties; }
+    RID get_voxel_bricks_rid() const { return _voxel_world_rids.voxel_bricks; }
+    RID get_voxel_data_rid() const { return _voxel_world_rids.voxel_data; }
+    RID get_voxel_data2_rid() const { return _voxel_world_rids.voxel_data2; }
+    bool is_initialized() const { return _initialized; }
+
     Ref<VoxelWorldGenerator> get_generator() const { return generator;}
     void set_generator(const Ref<VoxelWorldGenerator> p_generator) { generator = p_generator; }
 

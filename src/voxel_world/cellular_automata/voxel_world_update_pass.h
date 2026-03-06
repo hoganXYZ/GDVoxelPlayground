@@ -20,6 +20,7 @@ class VoxelWorldUpdatePass
     ~VoxelWorldUpdatePass() {};
 
     void update(float delta);
+    void run_cleanup();
 
   private:
     ComputeShader *automata_cs_1 = nullptr;

@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://dwuyjaai0qgak"
+path="res://.godot/imported/voxel_compositor_renderer.glsl-25aebfc0bb8683a3180c82dd07a5f67e.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/voxel_compositor_renderer.glsl"
+dest_files=["res://.godot/imported/voxel_compositor_renderer.glsl-25aebfc0bb8683a3180c82dd07a5f67e.res"]
+
+[params]
+

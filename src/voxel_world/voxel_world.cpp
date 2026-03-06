@@ -105,6 +105,12 @@ void VoxelWorld::_bind_methods()
     ClassDB::bind_method(D_METHOD("upload_cellpond_rules"), &VoxelWorld::upload_cellpond_rules);
     ClassDB::bind_method(D_METHOD("get_voxel_at", "grid_pos"), &VoxelWorld::get_voxel_at);
 
+    ClassDB::bind_method(D_METHOD("get_properties_rid"), &VoxelWorld::get_properties_rid);
+    ClassDB::bind_method(D_METHOD("get_voxel_bricks_rid"), &VoxelWorld::get_voxel_bricks_rid);
+    ClassDB::bind_method(D_METHOD("get_voxel_data_rid"), &VoxelWorld::get_voxel_data_rid);
+    ClassDB::bind_method(D_METHOD("get_voxel_data2_rid"), &VoxelWorld::get_voxel_data2_rid);
+    ClassDB::bind_method(D_METHOD("is_initialized"), &VoxelWorld::is_initialized);
+
     // methods
     ClassDB::bind_method(D_METHOD("edit_world", "camera_origin", "camera_direction", "radius", "range", "value"),
                          &VoxelWorld::edit_world);
@@ -120,20 +126,17 @@ void VoxelWorld::_bind_methods()
 
 void VoxelWorld::_notification(int p_what)
 {
-    if (godot::Engine::get_singleton()->is_editor_hint())
-    {
-        return;
-    }
+    bool in_editor = godot::Engine::get_singleton()->is_editor_hint();
+
     switch (p_what)
     {
     case NOTIFICATION_ENTER_TREE: {
-        set_physics_process_internal(true);
-
+        if (!in_editor)
+            set_physics_process_internal(true);
         break;
     }
     case NOTIFICATION_EXIT_TREE: {
         set_physics_process_internal(false);
-
         break;
     }
     case NOTIFICATION_READY: {
@@ -141,6 +144,8 @@ void VoxelWorld::_notification(int p_what)
         break;
     }
     case NOTIFICATION_INTERNAL_PHYSICS_PROCESS: {
+        if (in_editor)
+            return;
         float delta = get_physics_process_delta_time();
         update(delta);
         break;
@@ -196,6 +201,9 @@ void VoxelWorld::init()
 
     // Create the update pass.
     _update_pass = new VoxelWorldUpdatePass("res://addons/voxel_playground/src/shaders/automata/liquid.glsl", _rd, _voxel_world_rids, size);
+
+    // Run cleanup once to compute brick occupancy after generation
+    _update_pass->run_cleanup();
 
     // Create the CellPond rule pass.
     _cellpond_pass = new CellPondUpdatePass(_rd, _voxel_world_rids, size);
