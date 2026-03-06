@@ -71,6 +71,8 @@ class VoxelCamera : public Node3D
     TextureRect *get_output_texture() const;
     void set_output_texture(TextureRect *value);
 
+    Ref<Texture2DRD> get_render_texture() const;
+
     VoxelWorld *get_voxel_world() const;
     void set_voxel_world(VoxelWorld* value);
 

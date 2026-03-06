@@ -16,6 +16,8 @@ void VoxelCamera::_bind_methods()
     ClassDB::bind_method(D_METHOD("set_output_texture", "value"), &VoxelCamera::set_output_texture);
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "output_texture", PROPERTY_HINT_NODE_TYPE, "TextureRect"),
                  "set_output_texture", "get_output_texture");
+
+    ClassDB::bind_method(D_METHOD("get_render_texture"), &VoxelCamera::get_render_texture);
 }
 
 void VoxelCamera::_notification(int p_what)
@@ -75,6 +77,11 @@ TextureRect *VoxelCamera::get_output_texture() const
 void VoxelCamera::set_output_texture(TextureRect *value)
 {
     output_texture_rect = value;
+}
+
+Ref<Texture2DRD> VoxelCamera::get_render_texture() const
+{
+    return output_texture;
 }
 
 VoxelWorld *VoxelCamera::get_voxel_world() const

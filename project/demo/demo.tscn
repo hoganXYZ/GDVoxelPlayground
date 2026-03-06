@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://ojind5ypwi07" path="res://demo/auxiliary/fps_meter.gd" id="2_ytiva"]
 [ext_resource type="Script" uid="uid://cuinm7x4gnsph" path="res://demo/auxiliary/inventory/inventory.gd" id="3_j5lb4"]
 [ext_resource type="Script" uid="uid://cyvv1bjdipbml" path="res://demo/player_controller.gd" id="4_j5lb4"]
+[ext_resource type="Script" uid="uid://b7x0gn4hhtflv" path="res://demo/mesh_instance_3d.gd" id="6_onu7k"]
 
 [sub_resource type="VoxelWorldCPUGenerator" id="VoxelWorldCPUGenerator_u10mr"]
 generator = ExtResource("1_u10mr")
@@ -30,6 +31,11 @@ glow_blend_mode = 0
 adjustment_brightness = 0.95
 adjustment_contrast = 1.05
 adjustment_saturation = 1.1
+
+[sub_resource type="QuadMesh" id="QuadMesh_s1s6j"]
+size = Vector2(6.35, 5.145)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_u10mr"]
 
 [node name="World" type="Node3D" unique_id=517888293]
 
@@ -60,7 +66,7 @@ shape = SubResource("ConcavePolygonShape3D_dar0o")
 transform = Transform3D(0.63628, 0.354164, -0.685359, 0.013708, 0.883062, 0.469055, 0.771337, -0.307845, 0.55702, 0, 0, 0)
 
 [node name="Player" type="CharacterBody3D" parent="." unique_id=509493740 node_paths=PackedStringArray("camera")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.996582, 33.32814, 10.472092)
+transform = Transform3D(0.3126665, 0, 0.94986296, 0, 1, 0, -0.94986296, 0, 0.3126665, 15.532933, 33.32814, 12.8183365)
 script = ExtResource("4_j5lb4")
 camera = NodePath("VoxelCamera")
 is_flying = true
@@ -73,6 +79,7 @@ debug_color = Color(0, 0.6, 0.7, 0)
 [node name="VoxelCamera" type="VoxelCamera" parent="Player" unique_id=302756472 node_paths=PackedStringArray("voxel_world", "output_texture")]
 voxel_world = NodePath("../../VoxelWorld")
 output_texture = NodePath("TextureRect")
+unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
 
 [node name="WorldEditor" type="Node3D" parent="Player/VoxelCamera" unique_id=1237168907 node_paths=PackedStringArray("world")]
@@ -81,6 +88,7 @@ world = NodePath("../../../VoxelWorld")
 radius = 32
 
 [node name="TextureRect" type="TextureRect" parent="Player/VoxelCamera" unique_id=245812517]
+self_modulate = Color(1, 1, 1, 0.42745098)
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -210,5 +218,13 @@ offset_bottom = 23.0
 script = ExtResource("2_ytiva")
 reference_node = NodePath("../../..")
 
+[node name="Camera3D" type="Camera3D" parent="Player/VoxelCamera" unique_id=1716289173]
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=228252337]
 environment = SubResource("Environment_dar0o")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=425017236]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.39434433, 35.670963, 6.843154)
+mesh = SubResource("QuadMesh_s1s6j")
+surface_material_override/0 = SubResource("StandardMaterial3D_u10mr")
+script = ExtResource("6_onu7k")
