@@ -225,62 +225,82 @@ void main() {
     }
 
     // Use plain variables for voxelTraceWorld out params (not struct members) 
-    ivec3 grid_position;
-    vec3 normal;
-    int step_count = 0;
-    float t;
-    Voxel voxel;
-    vec3 color = vec3(0.0);
+    // ivec3 grid_position;
+    // vec3 normal;
+    // int step_count = 0;
+    // float t;
+    // Voxel voxel;
+    // vec3 color = vec3(0.0);
 
-    float range_near = debug.clip_near;
-    float range_far = debug.clip_far;
+    // float range_near = debug.clip_near;
+    // float range_far = debug.clip_far;
 
-    bool hit = voxelTraceBackfaceWorld(ray_origin, ray_dir, vec2(range_near, range_far), voxel, t, grid_position, normal, step_count);
-
-    // Debug 11: Trace result — green=hit, red=miss, brightness=step count
-    if (dbg == 11) {
-        float steps_norm = float(step_count) / 200.0;
-        if (hit) {
-            color = vec3(0.0, 0.3 + 0.7 * steps_norm, 0.0); // green = hit, brighter = more steps
-        } else {
-            color = vec3(0.3 + 0.7 * steps_norm, 0.0, 0.0); // red = miss, brighter = more steps
-        }
-        imageStore(outputImage, pos, vec4(color, 1.0));
-        return;
-    }
-
-    // Debug 12: Hit t-value and normal — useful for seeing where backfaces land 
-    if (dbg == 12 && hit) {
-        float t_norm = clamp(t / debug.clip_far, 0.0, 1.0);
-        color = mix(normal * 0.5 + 0.5, vec3(t_norm), 0.3); // mostly normal color, tinted by depth
-        imageStore(outputImage, pos, vec4(color, 1.0));
-        return;
-    } else if (dbg == 12) {
-        imageStore(outputImage, pos, vec4(0.1, 0.0, 0.1, 1.0)); // dark magenta = miss
-        return;
-    }
-
-    // Debug 13: clip_near/clip_far sanity — encodes range as color
-    if (dbg == 13) {
-        color = vec3(range_near / 100.0, range_far / 1000.0, float(step_count) / 200.0);
-        imageStore(outputImage, pos, vec4(color, 1.0));
-        return;
-    }
-
-    // Normal rendering path
+    Voxel voxel; float t; ivec3 gp; vec3 n; int steps;
+    bool hit = voxelTraceBackfaceWorld(ray_origin, ray_dir, vec2(0.0, 100.0), voxel, t, gp, n, steps);
+    imageStore(outputImage, ivec2(gl_GlobalInvocationID.xy), hit ? vec4(1,0,0,1) : vec4(0,0,1,1));
+    
     if (hit) {
         vec3 hitPos = ray_origin + t * ray_dir;
-        normal = normalize(normal);
+        n = normalize(n);
 
-        // Apply clipping — if clipped, show sky
-        if (sphereClipped(hitPos) || slicePlaneClipped(hitPos)) {
-            color = sampleSkyColor(ray_dir);
-        } else {
-            color = shadeVoxel(voxel, hitPos, grid_position, normal, step_count, ray_dir);
+        if (int(debug.backface_mode + 0.5) != 0) {
+            n = -n;
         }
+
+        vec3 color = getVoxelColor(voxel, gp);
+        // color = shadeVoxel(voxel, hitPos, gp, n, steps, ray_dir);
+
+        imageStore(outputImage, pos, vec4(color, 1.0));
     } else {
-        color = sampleSkyColor(ray_dir);
+    imageStore(outputImage, pos, vec4(sampleSkyColor(ray_dir), 1.0));
     }
 
-    imageStore(outputImage, pos, vec4(color, 1.0));
+    // bool hit = voxelTraceBackfaceWorld(ray_origin, ray_dir, vec2(range_near, range_far), voxel, t, grid_position, normal, step_count);
+
+    // Debug 11: Trace result — green=hit, red=miss, brightness=step count
+    // if (dbg == 11) {
+    //     float steps_norm = float(step_count) / 200.0;
+    //     if (hit) {
+    //         color = vec3(0.0, 0.3 + 0.7 * steps_norm, 0.0); // green = hit, brighter = more steps
+    //     } else {
+    //         color = vec3(0.3 + 0.7 * steps_norm, 0.0, 0.0); // red = miss, brighter = more steps
+    //     }
+    //     imageStore(outputImage, pos, vec4(color, 1.0));
+    //     return;
+    // }
+
+    // // Debug 12: Hit t-value and normal — useful for seeing where backfaces land 
+    // if (dbg == 12 && hit) {
+    //     float t_norm = clamp(t / debug.clip_far, 0.0, 1.0);
+    //     color = mix(normal * 0.5 + 0.5, vec3(t_norm), 0.3); // mostly normal color, tinted by depth
+    //     imageStore(outputImage, pos, vec4(color, 1.0));
+    //     return;
+    // } else if (dbg == 12) {
+    //     imageStore(outputImage, pos, vec4(0.1, 0.0, 0.1, 1.0)); // dark magenta = miss
+    //     return;
+    // }
+
+    // // Debug 13: clip_near/clip_far sanity — encodes range as color 
+    // if (dbg == 13) {
+    //     color = vec3(range_near / 100.0, range_far / 1000.0, float(step_count) / 200.0);
+    //     imageStore(outputImage, pos, vec4(color, 1.0));
+    //     return;
+    // }
+
+    // // Normal rendering path
+    // if (hit) {
+    //     vec3 hitPos = ray_origin + t * ray_dir;
+    //     normal = normalize(normal);
+
+    //     // Apply clipping — if clipped, show sky
+    //     if (sphereClipped(hitPos) || slicePlaneClipped(hitPos)) {
+    //         color = sampleSkyColor(ray_dir);
+    //     } else {
+    //         color = shadeVoxel(voxel, hitPos, grid_position, normal, step_count, ray_dir);
+    //     }
+    // } else {
+    //     color = sampleSkyColor(ray_dir);
+    // }
+
+    // imageStore(outputImage, pos, vec4(color, 1.0));
 }

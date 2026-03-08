@@ -222,6 +222,10 @@ ivec3 worldToGrid(vec3 pos) {
 }
 
 // -------------------------------------- RAYCASTING --------------------------------------
+// Normal convention:
+//   Front-face tracing: normal = -ray_step (points back toward the ray origin, i.e. outward from the surface)
+//   Back-face tracing:  normal = +ray_step (points along the ray direction, i.e. inward into the solid)
+
 bool voxelTraceBrick(vec3 origin, vec3 direction, uint voxel_data_pointer, out uint voxelIndex, inout int step_count, inout vec3 normal, out ivec3 grid_position, out float t) {
     origin = clamp(origin, vec3(0.001), vec3(7.999));
     grid_position = ivec3(floor(origin));
@@ -250,7 +254,7 @@ bool voxelTraceBrick(vec3 origin, vec3 direction, uint voxel_data_pointer, out u
         tMax += mask * tDelta;        
         grid_position += ivec3(ray_step);
         step_count++;
-        normal = -ray_step;
+        normal = -ray_step; // Front-face convention: normal points back toward ray origin
     }
     
     return false;
@@ -332,7 +336,7 @@ bool voxelTraceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel voxel, o
         t = minT;
         tMax += mask * tDelta;        
         brick_grid_position += ivec3(ray_step);
-        normal = -ray_step;
+        normal = -ray_step; // Front-face convention: normal points back toward ray origin
         step_count++;        
     }
     
@@ -340,7 +344,10 @@ bool voxelTraceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel voxel, o
 }
 
 // --------------------------------------- Backface --------------------------------------
-// Added world_ray_step to the signature
+// world_ray_step: The DDA step direction from the world-level traversal that brought the ray
+// into this brick. This is critical for correct normals at brick boundaries — if the first
+// voxel in the brick triggers a solid→air transition, we need the world-level step to derive
+// the exit normal rather than the uninitialized brick-level step.
 bool voxelTraceBackfaceBrick(vec3 origin, vec3 direction, uint voxel_data_pointer, inout int step_count, float world_t, inout bool inside_solid, inout Voxel last_solid_voxel, inout ivec3 last_solid_grid_pos, inout float last_solid_t, inout vec3 last_solid_normal, ivec3 brick_base_grid_pos, vec3 world_ray_step) {
     origin = clamp(origin, vec3(0.001), vec3(7.999));
     ivec3 grid_position = ivec3(floor(origin));
@@ -376,7 +383,8 @@ bool voxelTraceBackfaceBrick(vec3 origin, vec3 direction, uint voxel_data_pointe
                 // WE FOUND THE EXIT!
                 // 't' is the entry distance to THIS air voxel, meaning the exact exit boundary of the solid.
                 last_solid_t = world_t + t * voxelWorldProperties.scale;
-                // For backfaces, the normal points in the direction of the step we just took.
+                // Backface normal: +ray_step (points along the ray, into the solid interior).
+                // This is the opposite of front-face convention (-ray_step) by design.
                 last_solid_normal = ray_step; 
                 return true; 
             } else {
@@ -440,10 +448,13 @@ bool voxelTraceBackfaceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel 
     bool inside_solid = false;
     Voxel last_solid_voxel = createAirVoxel();
     ivec3 last_solid_grid_pos = ivec3(0);
-    float last_solid_t = 0.0;
+    float last_solid_t = t; // Initialize to current t, not 0.0, so if we never find an explicit
+                            // exit we still have a sensible fallback distance.
     vec3 last_solid_normal = vec3(0.0);
 
-    // Initialize the world ray step based on entry plane
+    // Initialize the world ray step based on entry plane.
+    // This is passed into voxelTraceBackfaceBrick to handle the case where the very first
+    // voxel checked at a brick boundary triggers a solid→air transition (see world_ray_step docs above).
     vec3 ray_step = vec3(0.0);
     if (t_entry == tmin.x) ray_step = vec3(sign(direction.x), 0.0, 0.0);
     else if (t_entry == tmin.y) ray_step = vec3(0.0, sign(direction.y), 0.0);
@@ -476,7 +487,10 @@ bool voxelTraceBackfaceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel 
             if (hit_exit) break; 
 
         } else if (inside_solid) {
-            // Stepped from an occupied brick into an entirely empty brick
+            // Stepped from an occupied brick into an entirely empty brick.
+            // This is a valid exit: the solid ended at the previous brick boundary.
+            // Note: sparsely-filled bricks (occupancy_count > 0 but ray path is all air) will
+            // still be traversed voxel-by-voxel. This is correct but could be a perf consideration.
             last_solid_t = t;
             last_solid_normal = ray_step;
             break; 
@@ -490,6 +504,13 @@ bool voxelTraceBackfaceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel 
         tMax += mask * tDelta;        
         brick_grid_position += ivec3(ray_step);
         step_count++;        
+    }
+
+    // If we ran out of steps (MAX_RAY_STEPS) or exceeded range while still inside solid,
+    // use the current traversal distance as the exit point rather than the stale last_solid_t.
+    if (inside_solid && last_solid_t < t) {
+        last_solid_t = t;
+        last_solid_normal = ray_step;
     }
     
     if (inside_solid) {
