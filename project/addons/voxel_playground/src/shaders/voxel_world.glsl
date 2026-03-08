@@ -339,6 +339,161 @@ bool voxelTraceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel voxel, o
     return false;
 }
 
+// --------------------------------------- Backface --------------------------------------
+bool voxelTraceBackfaceBrick(vec3 origin, vec3 direction, uint voxel_data_pointer, inout int step_count, float world_t, inout bool inside_solid, inout Voxel last_solid_voxel, inout ivec3 last_solid_grid_pos, inout float last_solid_t, inout vec3 last_solid_normal, ivec3 brick_base_grid_pos) {
+    origin = clamp(origin, vec3(0.001), vec3(7.999));
+    ivec3 grid_position = ivec3(floor(origin));
+
+    ivec3 step_dir   = ivec3(sign(direction));
+    vec3 invAbsDir   = 1.0 / max(abs(direction), vec3(1e-4));
+    vec3 factor      = step(vec3(0.0), direction);
+    float t = 0.0;
+
+    vec3 lowerDistance = (origin - vec3(grid_position));
+    vec3 upperDistance = (((vec3(grid_position) + vec3(1.0))) - origin);
+    vec3 tDelta      = invAbsDir;
+    vec3 tMax        = vec3(t) + mix(lowerDistance, upperDistance, factor) * invAbsDir;
+
+    vec3 ray_step = vec3(0.0);
+
+    while (all(greaterThanEqual(grid_position, ivec3(0))) &&
+           all(lessThanEqual(grid_position, ivec3(7)))) {
+        
+        uint voxelIndex = voxel_data_pointer + uint(getVoxelIndexInBrick(grid_position));
+        Voxel current_voxel = getVoxel(voxelIndex);
+        bool current_is_solid = !isVoxelAir(current_voxel);
+
+        if (!inside_solid) {
+            // Phase 1: Looking for the front face
+            if (current_is_solid) {
+                inside_solid = true;
+                last_solid_voxel = current_voxel;
+                last_solid_grid_pos = brick_base_grid_pos + grid_position;
+                last_solid_t = world_t + t * voxelWorldProperties.scale;
+                // Backface normals face WITH the ray direction
+                last_solid_normal = all(equal(ray_step, vec3(0.0))) ? sign(direction) : ray_step;
+            }
+        } else {
+            // Phase 2: Inside solid, looking for the exit
+            if (!current_is_solid) {
+                return true; // Found the exit!
+            } else {
+                // Still inside solid, keep updating the last known solid position
+                last_solid_voxel = current_voxel;
+                last_solid_grid_pos = brick_base_grid_pos + grid_position;
+                last_solid_t = world_t + t * voxelWorldProperties.scale;
+                last_solid_normal = all(equal(ray_step, vec3(0.0))) ? sign(direction) : ray_step;
+            }
+        }
+
+        float minT = min(min(tMax.x, tMax.y), tMax.z);
+        vec3 mask = vec3(1) - step(vec3(1e-4), abs(tMax - vec3(minT)));
+        ray_step = mask * step_dir; 
+
+        t = minT;
+        tMax += mask * tDelta;        
+        grid_position += ivec3(ray_step);
+        step_count++;
+    }
+    
+    return false; // Reached end of brick, but still might be inside a solid mass
+}
+
+bool voxelTraceBackfaceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel voxel, out float t, out ivec3 grid_position, out vec3 normal, out int step_count) {
+    step_count = 0;
+    grid_position = ivec3(0);
+    voxel = createAirVoxel();
+    float epsilon = 1e-4;
+
+    float scale = voxelWorldProperties.scale;
+    float brick_scale = scale * BRICK_EDGE_LENGTH;
+
+    vec3 bounds_min = vec3(0.0);
+    vec3 bounds_max = vec3(voxelWorldProperties.brick_grid_size.xyz) * brick_scale;
+
+    vec3 invDir = 1.0 / max(abs(direction), vec3(epsilon)) * sign(direction);
+    vec3 t0 = (bounds_min - origin) * invDir;
+    vec3 t1 = (bounds_max - origin) * invDir;
+
+    vec3 tmin = min(t0, t1);
+    vec3 tmax = max(t0, t1);
+    float t_entry = max(max(tmin.x, tmin.y), tmin.z);
+    float t_exit  = min(min(tmax.x, tmax.y), tmax.z);
+    
+    if (t_entry > t_exit || t_exit < 0.0) return false;
+
+    t = max(t_entry, range.x);
+    vec3 pos = origin + t * direction;
+    pos = clamp(pos, bounds_min, bounds_max - vec3(epsilon));
+    
+    ivec3 brick_grid_position = ivec3(floor(pos / brick_scale));
+
+    ivec3 step_dir   = ivec3(sign(direction));
+    vec3 invAbsDir   = 1.0 / max(abs(direction), vec3(epsilon));
+    vec3 factor      = step(vec3(0.0), direction);
+
+    vec3 lowerDistance = (pos - vec3(brick_grid_position) * brick_scale);
+    vec3 upperDistance = (((vec3(brick_grid_position) + vec3(1.0)) * brick_scale) - pos);
+    vec3 tDelta      = brick_scale * invAbsDir;
+    vec3 tMax        = vec3(t) + mix(lowerDistance, upperDistance, factor) * invAbsDir;    
+
+    // --- State Bridging Variables ---
+    bool inside_solid = false;
+    Voxel last_solid_voxel = createAirVoxel();
+    ivec3 last_solid_grid_pos = ivec3(0);
+    float last_solid_t = 0.0;
+    vec3 last_solid_normal = vec3(0.0);
+
+    while(step_count < MAX_RAY_STEPS && t < min(range.y, t_exit)) {
+        ivec3 base_grid_position = brick_grid_position * BRICK_EDGE_LENGTH;
+
+        if (!isValidPos(base_grid_position)) {
+            // Ray exited the world map bounds
+            if (inside_solid) break; 
+            return false;
+        }
+        
+        uint brick_index = getBrickIndex(base_grid_position);
+        Brick brick = voxelBricks[brick_index];
+        
+        if (brick.occupancy_count > 0) {
+            pos = ((origin + t * direction) - base_grid_position * scale) / brick_scale * BRICK_EDGE_LENGTH;
+
+            bool hit_exit = voxelTraceBackfaceBrick(
+                pos, direction, brick.voxel_data_pointer * BRICK_VOLUME, step_count, t,
+                inside_solid, last_solid_voxel, last_solid_grid_pos, last_solid_t, last_solid_normal, 
+                base_grid_position
+            );
+
+            if (hit_exit) break; // Found the transition from solid to air within a brick
+
+        } else if (inside_solid) {
+            // Stepped from an occupied brick into an entirely empty brick
+            break; 
+        }
+
+        float minT = min(min(tMax.x, tMax.y), tMax.z);
+        vec3 mask = vec3(1) - step(vec3(epsilon), abs(tMax - vec3(minT)));
+        vec3 ray_step = mask * step_dir;
+
+        t = minT;
+        tMax += mask * tDelta;        
+        brick_grid_position += ivec3(ray_step);
+        step_count++;        
+    }
+    
+    // Evaluate if we found a valid backface
+    if (inside_solid) {
+        voxel = last_solid_voxel;
+        grid_position = last_solid_grid_pos;
+        t = last_solid_t;
+        normal = last_solid_normal;
+        return true;
+    }
+
+    return false;
+}
+
 // -------------------------------------- Rendering --------------------------------------
 vec3 sampleSkyColor(vec3 direction) {
     float intensity = max(0.0, 0.5 + dot(direction, vec3(0.0, 0.5, 0.0)));

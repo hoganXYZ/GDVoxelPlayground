@@ -43,6 +43,8 @@ needs_normal_roughness = false
 script = ExtResource("6_s1s6j")
 slice_plane_normal = Vector3(0, 0, 1)
 slice_plane_offset = 10.362000000000023
+xray_alpha = 1.0
+xray_max_layers = 10.0
 edge_highlight = 0.031
 metadata/_custom_type_script = "uid://ddxwt6w1g63ih"
 

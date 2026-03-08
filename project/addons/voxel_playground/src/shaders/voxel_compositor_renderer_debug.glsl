@@ -196,7 +196,7 @@ void main() {
     float range_near = debug.clip_near;
     float range_far = debug.clip_far;
 
-    if (voxelTraceWorld(ray_origin, ray_dir, vec2(range_near, range_far), voxel, t, grid_position, normal, step_count)) {
+    if (voxelTraceBackfaceWorld(ray_origin, ray_dir, vec2(range_near, range_far), voxel, t, grid_position, normal, step_count)) {
         vec3 hitPos = ray_origin + t * ray_dir;
         normal = normalize(normal);
 
