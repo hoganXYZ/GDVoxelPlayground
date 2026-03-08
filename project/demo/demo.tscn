@@ -1,16 +1,15 @@
 [gd_scene format=3 uid="uid://s8dmi2g1hu2t"]
 
-[ext_resource type="VoxelWorldTerrainGenerator" uid="uid://7qp8oont4vut" path="res://demo/assets/settings/terrain_example.tres" id="1_u10mr"]
+[ext_resource type="VoxelWorldTerrainGenerator" uid="uid://buepxehjqvssl" path="res://demo/terrain_2.tres" id="1_s1s6j"]
 [ext_resource type="Script" uid="uid://bx00fnhlbwhlh" path="res://demo/world_editor.gd" id="2_dar0o"]
 [ext_resource type="Script" uid="uid://ojind5ypwi07" path="res://demo/auxiliary/fps_meter.gd" id="2_ytiva"]
 [ext_resource type="Script" uid="uid://cuinm7x4gnsph" path="res://demo/auxiliary/inventory/inventory.gd" id="3_j5lb4"]
 [ext_resource type="Script" uid="uid://cyvv1bjdipbml" path="res://demo/player_controller.gd" id="4_j5lb4"]
-[ext_resource type="Script" uid="uid://b7x0gn4hhtflv" path="res://demo/mesh_instance_3d.gd" id="6_onu7k"]
-[ext_resource type="Script" uid="uid://c26avfwk5mhkg" path="res://addons/voxel_playground/src/voxel_compositor_effect.gd" id="6_onvmd"]
+[ext_resource type="Script" uid="uid://ddxwt6w1g63ih" path="res://addons/voxel_playground/src/voxel_compositor_debug_effect.gd" id="6_s1s6j"]
 [ext_resource type="Script" uid="uid://caqd73gwf8gg6" path="res://addons/voxel_playground/src/voxel_compositor_bridge.gd" id="8_oeqrt"]
 
 [sub_resource type="VoxelWorldCPUGenerator" id="VoxelWorldCPUGenerator_u10mr"]
-generator = ExtResource("1_u10mr")
+generator = ExtResource("1_s1s6j")
 
 [sub_resource type="ConcavePolygonShape3D" id="ConcavePolygonShape3D_onvmd"]
 
@@ -34,28 +33,30 @@ adjustment_brightness = 0.95
 adjustment_contrast = 1.05
 adjustment_saturation = 1.1
 
-[sub_resource type="CompositorEffect" id="CompositorEffect_1rqa4"]
+[sub_resource type="CompositorEffect" id="CompositorEffect_oeqrt"]
 resource_local_to_scene = false
 resource_name = ""
 enabled = true
 effect_callback_type = 4
 needs_motion_vectors = false
 needs_normal_roughness = false
-script = ExtResource("6_onvmd")
-metadata/_custom_type_script = "uid://c26avfwk5mhkg"
+script = ExtResource("6_s1s6j")
+slice_plane_normal = Vector3(0, 0, 1)
+slice_plane_offset = 10.362000000000023
+edge_highlight = 0.031
+metadata/_custom_type_script = "uid://ddxwt6w1g63ih"
 
 [sub_resource type="Compositor" id="Compositor_xm42s"]
-compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_1rqa4")])
-
-[sub_resource type="QuadMesh" id="QuadMesh_s1s6j"]
-size = Vector2(6.35, 5.145)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_u10mr"]
+compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_oeqrt")])
 
 [node name="World" type="Node3D" unique_id=517888293]
 
+[node name="Node3D" type="Node3D" parent="." unique_id=105044328]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.4419103, 4.175933, 8.790336)
+
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1716289173]
-transform = Transform3D(0.31266654, -0.68641025, 0.6565672, -2.9802322e-08, 0.6912231, 0.7226415, -0.9498631, -0.22594577, 0.21612233, 24.781315, 27.034615, 15.862627)
+transform = Transform3D(0.31266654, -0.68641025, 0.6565672, -2.9802322e-08, 0.6912231, 0.7226415, -0.9498631, -0.22594577, 0.21612233, 24.37442, 27.469364, 15.728688)
+visible = false
 near = 0.097
 
 [node name="VoxelWorld" type="VoxelWorld" parent="." unique_id=1681248503 node_paths=PackedStringArray("voxel_world_collider", "player_node", "sun_light")]
@@ -67,7 +68,7 @@ player_node = NodePath("../Player")
 sun_light = NodePath("Sun")
 ground_color = Color(0.6336, 0.88928, 0.96, 1)
 sky_color = Color(0.2881, 0.561795, 0.67, 1)
-transform = Transform3D(0.999641, -0.0174314, -0.0203317, 0.017435, 0.999848, 0, 0.0203286, -0.000354483, 0.999793, 0, 0, 0)
+transform = Transform3D(0.99999964, 0, 0, 0, 1, 0, 0, 0, 0.9999997, 0, 0, 0)
 
 [node name="VoxelWorldCollider" type="VoxelWorldCollider" parent="VoxelWorld" unique_id=820265219 node_paths=PackedStringArray("collision_shape")]
 collider_size = Vector3i(24, 32, 24)
@@ -240,15 +241,9 @@ reference_node = NodePath("../../..")
 environment = SubResource("Environment_dar0o")
 compositor = SubResource("Compositor_xm42s")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=425017236]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.39434433, 35.670963, 6.843154)
-visible = false
-mesh = SubResource("QuadMesh_s1s6j")
-surface_material_override/0 = SubResource("StandardMaterial3D_u10mr")
-script = ExtResource("6_onu7k")
-
-[node name="VoxelCompositorBridge" type="Node" parent="." unique_id=1507487504 node_paths=PackedStringArray("voxel_world", "camera")]
+[node name="VoxelCompositorBridge" type="Node" parent="." unique_id=1507487504 node_paths=PackedStringArray("voxel_world", "camera", "clip_sphere_target")]
 script = ExtResource("8_oeqrt")
 voxel_world = NodePath("../VoxelWorld")
 camera = NodePath("../Camera3D")
+clip_sphere_target = NodePath("../Node3D")
 metadata/_custom_type_script = "uid://caqd73gwf8gg6"

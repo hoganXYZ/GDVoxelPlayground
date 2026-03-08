@@ -1,4 +1,4 @@
-[gd_resource type="VoxelWorldTerrainGenerator" format=3 uid="uid://7qp8oont4vut"]
+[gd_resource type="VoxelWorldTerrainGenerator" format=3 uid="uid://buepxehjqvssl"]
 
 [resource]
 noise_frequency = 0.03

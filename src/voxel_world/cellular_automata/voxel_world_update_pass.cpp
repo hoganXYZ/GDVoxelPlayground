@@ -33,7 +33,7 @@ void VoxelWorldUpdatePass::run_cleanup()
     const Vector3 group_size = Vector3(4, 2, 4);
     const Vector3 brick_span = thread_span * group_size;
     const Vector3i group_count = Vector3i(std::ceil(_size.x / brick_span.x), std::ceil(_size.y / brick_span.y), std::ceil(_size.z / brick_span.z));
-    cleanup_shader->compute(group_count, true);
+    cleanup_shader->compute(group_count, false);
 }
 
 void VoxelWorldUpdatePass::update(float delta)

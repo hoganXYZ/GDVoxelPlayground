@@ -170,36 +170,36 @@ func _render_callback(p_effect_callback_type, p_render_data):
 	rd.buffer_update(_camera_buffer, 0, buf.size(), buf)
 	_frame_index += 1
 
-	# Debug: log render details on first few frames
-	if _frame_index <= 3:
-		print("[VoxelCompositorEffect] DISPATCHING frame ", _frame_index)
-		print("[VoxelCompositorEffect]   render_size=", render_size)
-		print("[VoxelCompositorEffect]   cam_pos=", cam_pos)
-		print("[VoxelCompositorEffect]   cam_transform=", cam_transform)
-		print("[VoxelCompositorEffect]   buf size=", buf.size(), " bytes")
-		# Read back a few bytes of the properties buffer to check voxel world state
-		var props_data := rd.buffer_get_data(_properties_rid, 0, 64)
-		# First 16 bytes = ivec4 grid_size, next 16 = ivec4 brick_grid_size
-		var grid_x := props_data.decode_s32(0)
-		var grid_y := props_data.decode_s32(4)
-		var grid_z := props_data.decode_s32(8)
-		var brick_x := props_data.decode_s32(16)
-		var brick_y := props_data.decode_s32(20)
-		var brick_z := props_data.decode_s32(24)
-		var scale := props_data.decode_float(48 + 48)  # offset: 6 * vec4 = 96, then scale float
-		print("[VoxelCompositorEffect]   grid_size=(", grid_x, ",", grid_y, ",", grid_z, ")")
-		print("[VoxelCompositorEffect]   brick_grid_size=(", brick_x, ",", brick_y, ",", brick_z, ")")
-		# Read first few bricks to check occupancy
-		var brick_data := rd.buffer_get_data(_bricks_rid, 0, 40)  # 5 bricks * 8 bytes each
-		for bi in range(5):
-			var occ := brick_data.decode_s32(bi * 8)
-			var ptr := brick_data.decode_u32(bi * 8 + 4)
-			print("[VoxelCompositorEffect]   brick[", bi, "] occupancy=", occ, " ptr=", ptr)
-		# Read first few voxels
-		var voxel_data := rd.buffer_get_data(_voxel_data_rid, 0, 20)  # 5 voxels * 4 bytes
-		for vi in range(5):
-			var vd := voxel_data.decode_u32(vi * 4)
-			print("[VoxelCompositorEffect]   voxel[", vi, "] data=", vd, " type=", (vd >> 24) & 0xFF)
+	## Debug: log render details on first few frames
+	#if _frame_index <= 3:
+		#print("[VoxelCompositorEffect] DISPATCHING frame ", _frame_index)
+		#print("[VoxelCompositorEffect]   render_size=", render_size)
+		#print("[VoxelCompositorEffect]   cam_pos=", cam_pos)
+		#print("[VoxelCompositorEffect]   cam_transform=", cam_transform)
+		#print("[VoxelCompositorEffect]   buf size=", buf.size(), " bytes")
+		## Read back a few bytes of the properties buffer to check voxel world state
+		#var props_data := rd.buffer_get_data(_properties_rid, 0, 64)
+		## First 16 bytes = ivec4 grid_size, next 16 = ivec4 brick_grid_size
+		#var grid_x := props_data.decode_s32(0)
+		#var grid_y := props_data.decode_s32(4)
+		#var grid_z := props_data.decode_s32(8)
+		#var brick_x := props_data.decode_s32(16)
+		#var brick_y := props_data.decode_s32(20)
+		#var brick_z := props_data.decode_s32(24)
+		#var scale := props_data.decode_float(48 + 48)  # offset: 6 * vec4 = 96, then scale float
+		#print("[VoxelCompositorEffect]   grid_size=(", grid_x, ",", grid_y, ",", grid_z, ")")
+		#print("[VoxelCompositorEffect]   brick_grid_size=(", brick_x, ",", brick_y, ",", brick_z, ")")
+		## Read first few bricks to check occupancy
+		#var brick_data := rd.buffer_get_data(_bricks_rid, 0, 40)  # 5 bricks * 8 bytes each
+		#for bi in range(5):
+			#var occ := brick_data.decode_s32(bi * 8)
+			#var ptr := brick_data.decode_u32(bi * 8 + 4)
+			#print("[VoxelCompositorEffect]   brick[", bi, "] occupancy=", occ, " ptr=", ptr)
+		## Read first few voxels
+		#var voxel_data := rd.buffer_get_data(_voxel_data_rid, 0, 20)  # 5 voxels * 4 bytes
+		#for vi in range(5):
+			#var vd := voxel_data.decode_u32(vi * 4)
+			#print("[VoxelCompositorEffect]   voxel[", vi, "] data=", vd, " type=", (vd >> 24) & 0xFF)
 
 	rd.draw_command_begin_label("Voxel Compositor Render", Color(1.0, 1.0, 1.0, 1.0))
 

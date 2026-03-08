@@ -30,6 +30,7 @@ private:
     Vector3i brick_map_size = Vector3i(16, 16, 16);
     float scale = 0.125f;
     bool simulation_enabled = true;
+    bool auto_update_generation = false;
     bool _initialized;
 
     // RID _voxel_data_rid;
@@ -73,6 +74,11 @@ public:
     void set_simulation_enabled(bool enabled) { simulation_enabled = enabled; }
     bool get_simulation_enabled() const { return simulation_enabled; }
 
+    void set_auto_update_generation(bool enabled) { auto_update_generation = enabled; }
+    bool get_auto_update_generation() const { return auto_update_generation; }
+
+    void update_generation();
+
     void set_sun_light(DirectionalLight3D* node) { _sun_light = node; }
     DirectionalLight3D* get_sun_light() const { return _sun_light; }
 
@@ -103,7 +109,11 @@ public:
     bool is_initialized() const { return _initialized; }
 
     Ref<VoxelWorldGenerator> get_generator() const { return generator;}
-    void set_generator(const Ref<VoxelWorldGenerator> p_generator) { generator = p_generator; }
+    void set_generator(const Ref<VoxelWorldGenerator> p_generator) {
+        generator = p_generator;
+        if (auto_update_generation && _initialized)
+            update_generation();
+    }
 
     Ref<CellPondRuleSet> get_cellpond_rules() const { return _cellpond_rules; }
     void set_cellpond_rules(const Ref<CellPondRuleSet> p_rules) { _cellpond_rules = p_rules; }

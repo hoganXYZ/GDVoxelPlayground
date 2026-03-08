@@ -102,6 +102,14 @@ void VoxelWorld::_bind_methods()
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "cellpond_rules", PROPERTY_HINT_RESOURCE_TYPE, "CellPondRuleSet"),
                  "set_cellpond_rules", "get_cellpond_rules");
 
+    // Generation controls
+    ClassDB::bind_method(D_METHOD("get_auto_update_generation"), &VoxelWorld::get_auto_update_generation);
+    ClassDB::bind_method(D_METHOD("set_auto_update_generation", "enabled"), &VoxelWorld::set_auto_update_generation);
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_update_generation"), "set_auto_update_generation", "get_auto_update_generation");
+
+    ClassDB::bind_method(D_METHOD("update_generation"), &VoxelWorld::update_generation);
+    ADD_PROPERTY(PropertyInfo(Variant::NIL, "update_generation", PROPERTY_HINT_TOOL_BUTTON, "Update Generation"), "", "update_generation");
+
     ClassDB::bind_method(D_METHOD("upload_cellpond_rules"), &VoxelWorld::upload_cellpond_rules);
     ClassDB::bind_method(D_METHOD("get_voxel_at", "grid_pos"), &VoxelWorld::get_voxel_at);
 
@@ -254,6 +262,17 @@ void VoxelWorld::upload_cellpond_rules()
     if (_cellpond_pass == nullptr || _cellpond_rules.is_null())
         return;
     _cellpond_pass->set_rules(_cellpond_rules->build_gpu_buffer());
+}
+
+void VoxelWorld::update_generation()
+{
+    if (!_initialized || generator.is_null() || _rd == nullptr)
+        return;
+
+    generator->generate(_rd, _voxel_world_rids, _voxel_properties);
+
+    if (_update_pass != nullptr)
+        _update_pass->run_cleanup();
 }
 
 Dictionary VoxelWorld::get_voxel_at(const Vector3i &grid_pos)
