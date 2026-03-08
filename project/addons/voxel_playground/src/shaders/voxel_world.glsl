@@ -340,7 +340,8 @@ bool voxelTraceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel voxel, o
 }
 
 // --------------------------------------- Backface --------------------------------------
-bool voxelTraceBackfaceBrick(vec3 origin, vec3 direction, uint voxel_data_pointer, inout int step_count, float world_t, inout bool inside_solid, inout Voxel last_solid_voxel, inout ivec3 last_solid_grid_pos, inout float last_solid_t, inout vec3 last_solid_normal, ivec3 brick_base_grid_pos) {
+// Added world_ray_step to the signature
+bool voxelTraceBackfaceBrick(vec3 origin, vec3 direction, uint voxel_data_pointer, inout int step_count, float world_t, inout bool inside_solid, inout Voxel last_solid_voxel, inout ivec3 last_solid_grid_pos, inout float last_solid_t, inout vec3 last_solid_normal, ivec3 brick_base_grid_pos, vec3 world_ray_step) {
     origin = clamp(origin, vec3(0.001), vec3(7.999));
     ivec3 grid_position = ivec3(floor(origin));
 
@@ -354,7 +355,8 @@ bool voxelTraceBackfaceBrick(vec3 origin, vec3 direction, uint voxel_data_pointe
     vec3 tDelta      = invAbsDir;
     vec3 tMax        = vec3(t) + mix(lowerDistance, upperDistance, factor) * invAbsDir;
 
-    vec3 ray_step = vec3(0.0);
+    // Start with the world step that brought us into this brick
+    vec3 ray_step = world_ray_step;
 
     while (all(greaterThanEqual(grid_position, ivec3(0))) &&
            all(lessThanEqual(grid_position, ivec3(7)))) {
@@ -364,25 +366,23 @@ bool voxelTraceBackfaceBrick(vec3 origin, vec3 direction, uint voxel_data_pointe
         bool current_is_solid = !isVoxelAir(current_voxel);
 
         if (!inside_solid) {
-            // Phase 1: Looking for the front face
             if (current_is_solid) {
                 inside_solid = true;
                 last_solid_voxel = current_voxel;
                 last_solid_grid_pos = brick_base_grid_pos + grid_position;
-                last_solid_t = world_t + t * voxelWorldProperties.scale;
-                // Backface normals face WITH the ray direction
-                last_solid_normal = all(equal(ray_step, vec3(0.0))) ? sign(direction) : ray_step;
             }
         } else {
-            // Phase 2: Inside solid, looking for the exit
             if (!current_is_solid) {
-                return true; // Found the exit!
+                // WE FOUND THE EXIT!
+                // 't' is the entry distance to THIS air voxel, meaning the exact exit boundary of the solid.
+                last_solid_t = world_t + t * voxelWorldProperties.scale;
+                // For backfaces, the normal points in the direction of the step we just took.
+                last_solid_normal = ray_step; 
+                return true; 
             } else {
-                // Still inside solid, keep updating the last known solid position
+                // Still inside solid. Keep updating the last known solid position.
                 last_solid_voxel = current_voxel;
                 last_solid_grid_pos = brick_base_grid_pos + grid_position;
-                last_solid_t = world_t + t * voxelWorldProperties.scale;
-                last_solid_normal = all(equal(ray_step, vec3(0.0))) ? sign(direction) : ray_step;
             }
         }
 
@@ -396,7 +396,7 @@ bool voxelTraceBackfaceBrick(vec3 origin, vec3 direction, uint voxel_data_pointe
         step_count++;
     }
     
-    return false; // Reached end of brick, but still might be inside a solid mass
+    return false; 
 }
 
 bool voxelTraceBackfaceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel voxel, out float t, out ivec3 grid_position, out vec3 normal, out int step_count) {
@@ -437,20 +437,28 @@ bool voxelTraceBackfaceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel 
     vec3 tDelta      = brick_scale * invAbsDir;
     vec3 tMax        = vec3(t) + mix(lowerDistance, upperDistance, factor) * invAbsDir;    
 
-    // --- State Bridging Variables ---
     bool inside_solid = false;
     Voxel last_solid_voxel = createAirVoxel();
     ivec3 last_solid_grid_pos = ivec3(0);
     float last_solid_t = 0.0;
     vec3 last_solid_normal = vec3(0.0);
 
+    // Initialize the world ray step based on entry plane
+    vec3 ray_step = vec3(0.0);
+    if (t_entry == tmin.x) ray_step = vec3(sign(direction.x), 0.0, 0.0);
+    else if (t_entry == tmin.y) ray_step = vec3(0.0, sign(direction.y), 0.0);
+    else ray_step = vec3(0.0, 0.0, sign(direction.z));
+
     while(step_count < MAX_RAY_STEPS && t < min(range.y, t_exit)) {
         ivec3 base_grid_position = brick_grid_position * BRICK_EDGE_LENGTH;
 
         if (!isValidPos(base_grid_position)) {
-            // Ray exited the world map bounds
-            if (inside_solid) break; 
-            return false;
+            if (inside_solid) {
+                // Ray exited the world bounds while inside a solid mass
+                last_solid_t = t;
+                last_solid_normal = ray_step;
+            }
+            break; 
         }
         
         uint brick_index = getBrickIndex(base_grid_position);
@@ -462,19 +470,21 @@ bool voxelTraceBackfaceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel 
             bool hit_exit = voxelTraceBackfaceBrick(
                 pos, direction, brick.voxel_data_pointer * BRICK_VOLUME, step_count, t,
                 inside_solid, last_solid_voxel, last_solid_grid_pos, last_solid_t, last_solid_normal, 
-                base_grid_position
+                base_grid_position, ray_step // Passed into the brick trace
             );
 
-            if (hit_exit) break; // Found the transition from solid to air within a brick
+            if (hit_exit) break; 
 
         } else if (inside_solid) {
             // Stepped from an occupied brick into an entirely empty brick
+            last_solid_t = t;
+            last_solid_normal = ray_step;
             break; 
         }
 
         float minT = min(min(tMax.x, tMax.y), tMax.z);
         vec3 mask = vec3(1) - step(vec3(epsilon), abs(tMax - vec3(minT)));
-        vec3 ray_step = mask * step_dir;
+        ray_step = mask * step_dir;
 
         t = minT;
         tMax += mask * tDelta;        
@@ -482,7 +492,6 @@ bool voxelTraceBackfaceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel 
         step_count++;        
     }
     
-    // Evaluate if we found a valid backface
     if (inside_solid) {
         voxel = last_solid_voxel;
         grid_position = last_solid_grid_pos;

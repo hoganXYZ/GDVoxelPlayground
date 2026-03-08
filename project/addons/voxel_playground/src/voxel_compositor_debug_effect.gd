@@ -21,7 +21,7 @@ class_name VoxelCompositorDebugEffect
 
 # ---- Visualization ----
 @export_group("Visualization")
-@export_enum("Normal", "Normals", "Depth", "Step Heatmap", "Voxel Type", "AO Only", "Shadow Only", "Brick Grid") var viz_mode := 0
+@export_enum("Normal", "Normals", "Depth", "Step Heatmap", "Voxel Type", "AO Only", "Shadow Only", "Brick Grid", "8", "9", "10", "11", "12", "13") var viz_mode := 0
 @export_enum("Off", "Show Backfaces", "Backfaces Only") var backface_mode := 0
 @export_range(0.0, 1.0) var ao_intensity := 1.0
 @export_range(0.0, 1.0) var shadow_intensity := 1.0
