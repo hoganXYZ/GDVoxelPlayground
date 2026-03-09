@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://s8dmi2g1hu2t"]
 
-[ext_resource type="VoxelWorldTerrainGenerator" uid="uid://buepxehjqvssl" path="res://demo/terrain_2.tres" id="1_s1s6j"]
+[ext_resource type="VoxelWorldDataLoader" uid="uid://b4i6imitad4s4" path="res://demo/houdini_vox_01.tres" id="1_s1s6j"]
 [ext_resource type="Script" uid="uid://bx00fnhlbwhlh" path="res://demo/world_editor.gd" id="2_dar0o"]
 [ext_resource type="Script" uid="uid://ojind5ypwi07" path="res://demo/auxiliary/fps_meter.gd" id="2_ytiva"]
 [ext_resource type="Script" uid="uid://cuinm7x4gnsph" path="res://demo/auxiliary/inventory/inventory.gd" id="3_j5lb4"]

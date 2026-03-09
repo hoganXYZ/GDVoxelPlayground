@@ -2,8 +2,7 @@
 #define VOXEL_WORLD_GLSL
 
 
-
-#define MAX_RAY_STEPS 1000
+#define MAX_RAY_STEPS 1000 
 #define BRICK_EDGE_LENGTH 8
 #define BRICK_VOLUME 512 
 
@@ -108,7 +107,7 @@ uint getVineEnergy(Voxel voxel) {
 }
 
 bool isVoxelType(Voxel voxel, uint type) {
-    return ((voxel.data >> 24) & 0xFF) == (type & 0xFF);
+    return ((voxel.data >> 24) & 0xFF) == (type & 0xFF); 
 }
 
 bool equalsVoxelType(Voxel a, Voxel b) {
@@ -257,7 +256,7 @@ bool voxelTraceBrick(vec3 origin, vec3 direction, uint voxel_data_pointer, out u
         normal = -ray_step; // Front-face convention: normal points back toward ray origin
     }
     
-    return false;
+    return false; 
 }
 
 bool voxelTraceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel voxel, out float t, out ivec3 grid_position, out vec3 normal, out int step_count) {
@@ -522,6 +521,139 @@ bool voxelTraceBackfaceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel 
     }
 
     return false;
+}
+
+// -------------------------------------- Multi-Hit Tracing --------------------------------------
+// Uses file-scope globals to avoid passing struct arrays through function params
+// (MoltenVK/Metal on macOS cannot handle inout VoxelHit[] parameters)
+
+#define MAX_HITS 3
+
+struct VoxelHit {
+    Voxel voxel;
+    float t;
+    ivec3 grid_position;
+    vec3 normal;
+};
+
+// File-scope results — written by voxelTraceWorldMultiHit, read by caller
+VoxelHit g_hits[MAX_HITS];
+int g_hit_count;
+int g_step_count;
+
+void voxelTraceWorldMultiHit(vec3 origin, vec3 direction, vec2 range) {
+    g_step_count = 0;
+    g_hit_count = 0;
+    float epsilon = 1e-4;
+
+    float scale = voxelWorldProperties.scale;
+    float brick_scale = scale * BRICK_EDGE_LENGTH;
+
+    vec3 bounds_min = vec3(0.0);
+    vec3 bounds_max = vec3(voxelWorldProperties.brick_grid_size.xyz) * brick_scale;
+
+    vec3 invDir = 1.0 / max(abs(direction), vec3(epsilon)) * sign(direction);
+    vec3 t0 = (bounds_min - origin) * invDir;
+    vec3 t1 = (bounds_max - origin) * invDir;
+
+    vec3 tmin = min(t0, t1);
+    vec3 tmax = max(t0, t1);
+    float t_entry = max(max(tmin.x, tmin.y), tmin.z);
+    float t_exit  = min(min(tmax.x, tmax.y), tmax.z);
+    if (t_entry > t_exit || t_exit < 0.0)
+        return;
+
+    float t = max(t_entry, range.x);
+    vec3 pos = origin + t * direction;
+    pos = clamp(pos, bounds_min, bounds_max - vec3(epsilon));
+    ivec3 brick_grid_position = ivec3(floor(pos / brick_scale));
+
+    ivec3 w_step_dir = ivec3(sign(direction));
+    vec3 w_invAbsDir = 1.0 / max(abs(direction), vec3(epsilon));
+    vec3 w_factor    = step(vec3(0.0), direction);
+
+    vec3 lowerDistance = (pos - vec3(brick_grid_position) * brick_scale);
+    vec3 upperDistance = (((vec3(brick_grid_position) + vec3(1.0)) * brick_scale) - pos);
+    vec3 w_tDelta    = brick_scale * w_invAbsDir;
+    vec3 w_tMax      = vec3(t) + mix(lowerDistance, upperDistance, w_factor) * w_invAbsDir;
+
+    bool in_solid = false;
+
+    // Initialize world ray step from entry plane
+    vec3 w_ray_step = vec3(0.0);
+    if (t_entry == tmin.x) w_ray_step = vec3(sign(direction.x), 0.0, 0.0);
+    else if (t_entry == tmin.y) w_ray_step = vec3(0.0, sign(direction.y), 0.0);
+    else w_ray_step = vec3(0.0, 0.0, sign(direction.z));
+
+    while (g_step_count < MAX_RAY_STEPS && t < min(range.y, t_exit) && g_hit_count < MAX_HITS) {
+        ivec3 base_grid_position = brick_grid_position * BRICK_EDGE_LENGTH;
+
+        if (!isValidPos(base_grid_position))
+            break;
+
+        uint brick_index = getBrickIndex(base_grid_position);
+        Brick brick = voxelBricks[brick_index];
+
+        if (brick.occupancy_count > 0) {
+            // --- Inlined brick DDA ---
+            vec3 b_origin = ((origin + t * direction) - base_grid_position * scale) / brick_scale * BRICK_EDGE_LENGTH;
+            b_origin = clamp(b_origin, vec3(0.001), vec3(7.999));
+            ivec3 b_pos = ivec3(floor(b_origin));
+
+            ivec3 b_step_dir = ivec3(sign(direction));
+            vec3 b_invAbsDir = 1.0 / max(abs(direction), vec3(1e-4));
+            vec3 b_factor    = step(vec3(0.0), direction);
+            float b_t = 0.0;
+
+            vec3 b_lower = b_origin - vec3(b_pos);
+            vec3 b_upper = vec3(b_pos) + vec3(1.0) - b_origin;
+            vec3 b_tDelta = b_invAbsDir;
+            vec3 b_tMax   = vec3(b_t) + mix(b_lower, b_upper, b_factor) * b_invAbsDir;
+
+            vec3 b_ray_step = w_ray_step;
+            uint vdp = brick.voxel_data_pointer * BRICK_VOLUME;
+
+            while (all(greaterThanEqual(b_pos, ivec3(0))) &&
+                   all(lessThanEqual(b_pos, ivec3(7))) &&
+                   g_hit_count < MAX_HITS) {
+
+                uint voxelIndex = vdp + uint(getVoxelIndexInBrick(b_pos));
+                bool current_is_solid = !isVoxelAir(getVoxel(voxelIndex));
+
+                if (!in_solid && current_is_solid) {
+                    in_solid = true;
+                    g_hits[g_hit_count].voxel = getVoxel(voxelIndex);
+                    g_hits[g_hit_count].t = t + b_t * voxelWorldProperties.scale;
+                    g_hits[g_hit_count].grid_position = base_grid_position + b_pos;
+                    g_hits[g_hit_count].normal = -b_ray_step;
+                    g_hit_count++;
+                } else if (in_solid && !current_is_solid) {
+                    in_solid = false;
+                }
+
+                float b_minT = min(min(b_tMax.x, b_tMax.y), b_tMax.z);
+                vec3 b_mask = vec3(1) - step(vec3(1e-4), abs(b_tMax - vec3(b_minT)));
+                b_ray_step = b_mask * b_step_dir;
+
+                b_t = b_minT;
+                b_tMax += b_mask * b_tDelta;
+                b_pos += ivec3(b_ray_step);
+                g_step_count++;
+            }
+            // --- End inlined brick DDA ---
+        } else if (in_solid) {
+            in_solid = false;
+        }
+
+        float minT = min(min(w_tMax.x, w_tMax.y), w_tMax.z);
+        vec3 mask = vec3(1) - step(vec3(epsilon), abs(w_tMax - vec3(minT)));
+        w_ray_step = mask * w_step_dir;
+
+        t = minT;
+        w_tMax += mask * w_tDelta;
+        brick_grid_position += ivec3(w_ray_step);
+        g_step_count++;
+    }
 }
 
 // -------------------------------------- Rendering --------------------------------------

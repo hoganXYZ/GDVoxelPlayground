@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://cy5uresvptxfm"
+path="res://.godot/imported/surface_pass.glsl-bdf3e5dd75c46eb586afa8b22b61d6fd.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/multipass_setup/surface_pass.glsl"
+dest_files=["res://.godot/imported/surface_pass.glsl-bdf3e5dd75c46eb586afa8b22b61d6fd.res"]
+
+[params]
+

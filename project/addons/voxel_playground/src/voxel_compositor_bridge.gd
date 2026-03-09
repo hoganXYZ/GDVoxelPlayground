@@ -11,6 +11,7 @@ class_name VoxelCompositorBridge
 @onready var world_environment: WorldEnvironment = $"../WorldEnvironment"
 
 var _debug_effect = null
+var _tunnel_effect = null
 var _connected_effects: Array = []  # track which effect instances we've connected
 
 func _ready():
@@ -20,6 +21,8 @@ func _process(_delta):
 	_try_connect()
 	if _debug_effect and clip_sphere_target:
 		_debug_effect.update_sphere_position(clip_sphere_target.global_position)
+	if _tunnel_effect and clip_sphere_target:
+		_tunnel_effect.update_sphere_position(clip_sphere_target.global_position)
 
 func _try_connect():
 	if !voxel_world:
@@ -39,6 +42,7 @@ func _try_connect():
 		return
 
 	_debug_effect = null
+	_tunnel_effect = null
 	_connected_effects = current_effects
 	print("[VoxelCompositorBridge] Scanning ", current_effects.size(), " effects")
 	for effect in current_effects:
@@ -61,3 +65,11 @@ func _try_connect():
 				voxel_world.get_voxel_data2_rid()
 			)
 			_debug_effect = effect
+		if effect.get_script() and effect.get_script().get_global_name() == &"VoxelCompositorTunnelEffect":
+			effect.set_voxel_world_rids(
+				voxel_world.get_properties_rid(),
+				voxel_world.get_voxel_bricks_rid(),
+				voxel_world.get_voxel_data_rid(),
+				voxel_world.get_voxel_data2_rid()
+			)
+			_tunnel_effect = effect

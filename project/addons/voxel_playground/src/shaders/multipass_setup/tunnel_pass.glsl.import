@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://ckehkrhalu4u1"
+path="res://.godot/imported/tunnel_pass.glsl-e15ab94d016299a15ee6d7838882bb2e.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/multipass_setup/tunnel_pass.glsl"
+dest_files=["res://.godot/imported/tunnel_pass.glsl-e15ab94d016299a15ee6d7838882bb2e.res"]
+
+[params]
+

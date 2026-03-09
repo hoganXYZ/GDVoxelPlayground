@@ -54,3 +54,6 @@ desktop.ini
 vc140.pdb
 src/**/*.obj
 project/export/
+/.cache
+/.claude
+/.claude

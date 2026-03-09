@@ -1,8 +1,8 @@
 #[compute]
 #version 460
 
-#include "utility.glsl"
-#include "voxel_world.glsl"
+#include "utility.glsl.inc"
+#include "voxel_world.glsl.inc"
 
 // ----------------------------------- CAMERA + RENDER PARAMS -----------------------------------
 
@@ -186,6 +186,7 @@ void main() {
     vec3 ray_dir = normalize(world_pos.xyz - ray_origin);
 
     int dbg = int(debug.viz_mode + 0.5);
+    vec3 color = vec3(0.0);
 
     // Debug 8: UV gradient — confirms the shader is dispatching and writing to the image
     if (dbg == 8) {
@@ -200,107 +201,66 @@ void main() {
     }
 
     // Debug 10: World bounds AABB hit test — does the ray even intersect the voxel volume?
-    if (dbg == 10) {
-        float scale = voxelWorldProperties.scale;
-        float brick_scale = scale * float(BRICK_EDGE_LENGTH);
-        vec3 bounds_min = vec3(0.0);
-        vec3 bounds_max = vec3(voxelWorldProperties.brick_grid_size.xyz) * brick_scale;
-        vec3 invDir = 1.0 / max(abs(ray_dir), vec3(1e-4)) * sign(ray_dir);
-        vec3 t0 = (bounds_min - ray_origin) * invDir;
-        vec3 t1 = (bounds_max - ray_origin) * invDir;
-        vec3 tmin_v = min(t0, t1);
-        vec3 tmax_v = max(t0, t1);
-        float t_entry = max(max(tmin_v.x, tmin_v.y), tmin_v.z);
-        float t_exit  = min(min(tmax_v.x, tmax_v.y), tmax_v.z);
+    // if (dbg == 10) {
+    //     float scale = voxelWorldProperties.scale;
+    //     float brick_scale = scale * float(BRICK_EDGE_LENGTH);
+    //     vec3 bounds_min = vec3(0.0);
+    //     vec3 bounds_max = vec3(voxelWorldProperties.brick_grid_size.xyz) * brick_scale;
+    //     vec3 invDir = 1.0 / max(abs(ray_dir), vec3(1e-4)) * sign(ray_dir);
+    //     vec3 t0 = (bounds_min - ray_origin) * invDir;
+    //     vec3 t1 = (bounds_max - ray_origin) * invDir;
+    //     vec3 tmin_v = min(t0, t1);
+    //     vec3 tmax_v = max(t0, t1);
+    //     float t_entry = max(max(tmin_v.x, tmin_v.y), tmin_v.z);
+    //     float t_exit  = min(min(tmax_v.x, tmax_v.y), tmax_v.z);
 
-        vec3 color;
-        if (t_entry > t_exit || t_exit < 0.0) {
-            color = vec3(1.0, 0.0, 0.0); // RED = ray misses volume entirely
-        } else {
-            // GREEN channel = entry t normalized, BLUE = exit t normalized
-            color = vec3(0.0, clamp(t_entry / debug.clip_far, 0.0, 1.0), clamp(t_exit / debug.clip_far, 0.0, 1.0));
-        }
-        imageStore(outputImage, pos, vec4(color, 1.0));
-        return;
-    }
-
-    // Use plain variables for voxelTraceWorld out params (not struct members) 
-    // ivec3 grid_position;
-    // vec3 normal;
-    // int step_count = 0;
-    // float t;
-    // Voxel voxel;
-    // vec3 color = vec3(0.0);
-
-    // float range_near = debug.clip_near;
-    // float range_far = debug.clip_far;
-
-    Voxel voxel; float t; ivec3 gp; vec3 n; int steps;
-    bool hit = voxelTraceBackfaceWorld(ray_origin, ray_dir, vec2(0.0, 100.0), voxel, t, gp, n, steps);
-    imageStore(outputImage, ivec2(gl_GlobalInvocationID.xy), hit ? vec4(1,0,0,1) : vec4(0,0,1,1));
-    
-    if (hit) {
-        vec3 hitPos = ray_origin + t * ray_dir;
-        n = normalize(n);
-
-        if (int(debug.backface_mode + 0.5) != 0) {
-            n = -n;
-        }
-
-        vec3 color = getVoxelColor(voxel, gp);
-        // color = shadeVoxel(voxel, hitPos, gp, n, steps, ray_dir);
-
-        imageStore(outputImage, pos, vec4(color, 1.0));
-    } else {
-    imageStore(outputImage, pos, vec4(sampleSkyColor(ray_dir), 1.0));
-    }
-
-    // bool hit = voxelTraceBackfaceWorld(ray_origin, ray_dir, vec2(range_near, range_far), voxel, t, grid_position, normal, step_count);
-
-    // Debug 11: Trace result — green=hit, red=miss, brightness=step count
-    // if (dbg == 11) {
-    //     float steps_norm = float(step_count) / 200.0;
-    //     if (hit) {
-    //         color = vec3(0.0, 0.3 + 0.7 * steps_norm, 0.0); // green = hit, brighter = more steps
+    //     if (t_entry > t_exit || t_exit < 0.0) {
+    //         color = vec3(1.0, 0.0, 0.0); // RED = ray misses volume entirely
     //     } else {
-    //         color = vec3(0.3 + 0.7 * steps_norm, 0.0, 0.0); // red = miss, brighter = more steps
+    //         // GREEN channel = entry t normalized, BLUE = exit t normalized
+    //         color = vec3(0.0, clamp(t_entry / debug.clip_far, 0.0, 1.0), clamp(t_exit / debug.clip_far, 0.0, 1.0));
     //     }
     //     imageStore(outputImage, pos, vec4(color, 1.0));
     //     return;
     // }
 
-    // // Debug 12: Hit t-value and normal — useful for seeing where backfaces land 
-    // if (dbg == 12 && hit) {
-    //     float t_norm = clamp(t / debug.clip_far, 0.0, 1.0);
-    //     color = mix(normal * 0.5 + 0.5, vec3(t_norm), 0.3); // mostly normal color, tinted by depth
-    //     imageStore(outputImage, pos, vec4(color, 1.0));
-    //     return;
-    // } else if (dbg == 12) {
-    //     imageStore(outputImage, pos, vec4(0.1, 0.0, 0.1, 1.0)); // dark magenta = miss
-    //     return;
-    // }
+    float range_near = debug.clip_near;
+    float range_far = debug.clip_far;
 
-    // // Debug 13: clip_near/clip_far sanity — encodes range as color 
-    // if (dbg == 13) {
-    //     color = vec3(range_near / 100.0, range_far / 1000.0, float(step_count) / 200.0);
-    //     imageStore(outputImage, pos, vec4(color, 1.0));
-    //     return;
-    // }
+    // int max_layers = clamp(int(debug.xray_max_layers + 0.5), 1, 10); //10 was MAX_HITS
+    int max_layers = 5;
+    float tunnel_opacity = debug.xray_alpha;
 
-    // // Normal rendering path
-    // if (hit) {
-    //     vec3 hitPos = ray_origin + t * ray_dir;
-    //     normal = normalize(normal);
+    // Multi-hit raymarching (results in g_hits, g_hit_count, g_step_count)
+    voxelTraceWorldMultiHit(ray_origin, ray_dir, vec2(range_near, range_far));
+    int hit_count = min(g_hit_count, max_layers);
+    vec3 hitPos = ray_origin + g_hits[0].t * ray_dir;
+    vec3 n = normalize(g_hits[0].normal);
+    int steps = g_step_count;
 
-    //     // Apply clipping — if clipped, show sky
-    //     if (sphereClipped(hitPos) || slicePlaneClipped(hitPos)) {
-    //         color = sampleSkyColor(ray_dir);
+    // Back-to-front compositing
+    color = sampleSkyColor(ray_dir);
+    // color = vec3(hit_count * 0.3, 0.0, 0.0);
+    color = shadeVoxel(g_hits[0].voxel, hitPos, g_hits[0].grid_position, n, steps, ray_dir);
+
+    // for (int i = hit_count - 1; i >= 0; i--) {
+    //     vec3 hitPos = ray_origin + g_hits[i].t * ray_dir;
+    //     vec3 n = normalize(g_hits[i].normal);
+    //     vec3 layer_color;
+
+    //     if (i == 0) {
+    //         // layer_color = shadeVoxel(g_hits[i].voxel, hitPos, g_hits[i].grid_position, n, steps, ray_dir);
+    //         layer_color = vec3(1.0, 0.0, 0.0);
     //     } else {
-    //         color = shadeVoxel(voxel, hitPos, grid_position, normal, step_count, ray_dir);
+    //         // float ao = computeAmbientOcclusion(hitPos, g_hits[i].grid_position, n);
+    //         // ao = mix(1.0, ao, debug.ao_intensity) * 0.7 + 0.3;
+    //         // layer_color = getVoxelColor(g_hits[i].voxel, g_hits[i].grid_position) * ao;
+    //         layer_color = vec3(0.0, 1.0, 0.0);
     //     }
-    // } else {
-    //     color = sampleSkyColor(ray_dir);
+
+    //     float layer_alpha = (i == 0) ? 1.0 : tunnel_opacity * pow(0.7, float(i));
+    //     color = mix(color, layer_color, layer_alpha);
     // }
 
-    // imageStore(outputImage, pos, vec4(color, 1.0));
+    imageStore(outputImage, pos, vec4(color, 1.0));
 }
