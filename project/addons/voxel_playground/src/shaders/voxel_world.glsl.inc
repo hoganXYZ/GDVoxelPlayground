@@ -527,7 +527,7 @@ bool voxelTraceBackfaceWorld(vec3 origin, vec3 direction, vec2 range, out Voxel 
 // Uses file-scope globals to avoid passing struct arrays through function params
 // (MoltenVK/Metal on macOS cannot handle inout VoxelHit[] parameters)
 
-#define MAX_HITS 3
+#define MAX_HITS 10
 
 struct VoxelHit {
     Voxel voxel;

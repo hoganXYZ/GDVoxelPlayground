@@ -22,7 +22,7 @@ height = 1.8
 [sub_resource type="Environment" id="Environment_dar0o"]
 background_mode = 3
 ambient_light_source = 2
-ambient_light_color = Color(0.98234254, 0.9823423, 0.9823424, 1)
+ambient_light_color = Color(0.24115449, 0.2411569, 0.24115458, 1)
 tonemap_mode = 4
 tonemap_exposure = 2.02
 tonemap_agx_white = 14.51

@@ -29,7 +29,7 @@ class_name VoxelCompositorDebugEffect
 # ---- X-Ray ----
 @export_group("X-Ray")
 @export_range(0.0, 1.0) var xray_alpha := 0.0
-@export_range(1.0, 10.0) var xray_max_layers := 1.0
+@export_range(0.0, 10.0) var xray_max_layers := 1.0
 @export_range(0.0, 1.0) var edge_highlight := 0.0
 
 ###############################################################################

@@ -228,38 +228,42 @@ void main() {
     float range_far = debug.clip_far;
 
     // int max_layers = clamp(int(debug.xray_max_layers + 0.5), 1, 10); //10 was MAX_HITS
-    int max_layers = 5;
+    int max_layers = 10;
     float tunnel_opacity = debug.xray_alpha;
 
     // Multi-hit raymarching (results in g_hits, g_hit_count, g_step_count)
     voxelTraceWorldMultiHit(ray_origin, ray_dir, vec2(range_near, range_far));
     int hit_count = min(g_hit_count, max_layers);
-    vec3 hitPos = ray_origin + g_hits[0].t * ray_dir;
-    vec3 n = normalize(g_hits[0].normal);
+    // vec3 hitPos = ray_origin + g_hits[1].t * ray_dir;
+    // vec3 n = normalize(g_hits[1].normal);
     int steps = g_step_count;
 
     // Back-to-front compositing
-    color = sampleSkyColor(ray_dir);
+    // color = sampleSkyColor(ray_dir);
     // color = vec3(hit_count * 0.3, 0.0, 0.0);
-    color = shadeVoxel(g_hits[0].voxel, hitPos, g_hits[0].grid_position, n, steps, ray_dir);
+    // color = shadeVoxel(g_hits[1].voxel, hitPos, g_hits[1].grid_position, n, steps, ray_dir);
 
-    // for (int i = hit_count - 1; i >= 0; i--) {
-    //     vec3 hitPos = ray_origin + g_hits[i].t * ray_dir;
-    //     vec3 n = normalize(g_hits[i].normal);
-    //     vec3 layer_color;
+    int layer_select = clamp(int(debug.xray_max_layers), 0, 20);
 
-    //     if (i == 0) {
-    //         // layer_color = shadeVoxel(g_hits[i].voxel, hitPos, g_hits[i].grid_position, n, steps, ray_dir);
-    //         layer_color = vec3(1.0, 0.0, 0.0);
-    //     } else {
-    //         // float ao = computeAmbientOcclusion(hitPos, g_hits[i].grid_position, n);
-    //         // ao = mix(1.0, ao, debug.ao_intensity) * 0.7 + 0.3;
-    //         // layer_color = getVoxelColor(g_hits[i].voxel, g_hits[i].grid_position) * ao;
-    //         layer_color = vec3(0.0, 1.0, 0.0);
-    //     }
 
-    //     float layer_alpha = (i == 0) ? 1.0 : tunnel_opacity * pow(0.7, float(i));
-    //     color = mix(color, layer_color, layer_alpha);
+    // Deeper layers first (back-to-front), simplified shading only 
+    for (int i = hit_count - 1; i >= 1; i--) {
+        vec3 hitPos = ray_origin + g_hits[i].t * ray_dir;
+        vec3 n = normalize(g_hits[i].normal);
+        float ao = computeAmbientOcclusion(hitPos, g_hits[i].grid_position, n);
+        // ao = mix(1.0, ao, debug.ao_intensity) * 0.7 + 0.3;
+        // vec3 layer_color = getVoxelColor(g_hits[i].voxel, g_hits[i].grid_position) * ao;
+        // float layer_alpha = 0.5 * pow(0.7, float(i));
+        vec3 layer_color = vec3(0.1, 0.0, 0.0);
+        // float layer_alpha = hit_count;
+        color = color + layer_color;
+    }
+
+    // Front surface last — full shading (outside the loop)
+    // if (hit_count > 0) {
+    //     vec3 hitPos = ray_origin + g_hits[0].t * ray_dir;
+    //     vec3 n = normalize(g_hits[0].normal);
+    //     color = shadeVoxel(g_hits[0].voxel, hitPos, g_hits[0].grid_position, n, steps, ray_dir);
     // }
 
     imageStore(outputImage, pos, vec4(color, 1.0));
