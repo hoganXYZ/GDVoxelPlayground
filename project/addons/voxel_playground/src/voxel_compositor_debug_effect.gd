@@ -48,6 +48,7 @@ var _voxel_world_ready: bool = false
 
 var _frame_index: int = 0
 var _sphere_center: Vector3 = Vector3.ZERO
+var _mouse_position: Vector2 = Vector2.ZERO
 
 func _init():
 	print("[VoxelDebugEffect] _init called")
@@ -73,6 +74,10 @@ func set_voxel_world_rids(properties: RID, bricks: RID, data: RID, data2: RID) -
 ## Called from bridge each frame to update the sphere clip center.
 func update_sphere_position(pos: Vector3) -> void:
 	_sphere_center = pos
+
+## Called from bridge each frame to pass the mouse screen position.
+func update_mouse_position(pos: Vector2) -> void:
+	_mouse_position = pos
 
 ###############################################################################
 # Render thread
@@ -166,8 +171,8 @@ func _pack_push_constants() -> PackedByteArray:
 	pc.push_back(edge_highlight)
 	pc.push_back(0.0)
 
-	# Row 5: reserved (16 bytes)
-	pc.push_back(0.0); pc.push_back(0.0); pc.push_back(0.0); pc.push_back(0.0)
+	# Row 5: mouse position (16 bytes)
+	pc.push_back(_mouse_position.x); pc.push_back(_mouse_position.y); pc.push_back(0.0); pc.push_back(0.0)
 
 	return pc.to_byte_array()
 

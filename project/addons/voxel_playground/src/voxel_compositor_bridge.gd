@@ -21,6 +21,8 @@ func _process(_delta):
 	_try_connect()
 	if _debug_effect and clip_sphere_target:
 		_debug_effect.update_sphere_position(clip_sphere_target.global_position)
+	if _debug_effect:
+		_debug_effect.update_mouse_position(get_viewport().get_mouse_position())
 	if _tunnel_effect and clip_sphere_target:
 		_tunnel_effect.update_sphere_position(clip_sphere_target.global_position)
 

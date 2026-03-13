@@ -1,17 +1,18 @@
 [gd_scene format=3 uid="uid://s8dmi2g1hu2t"]
 
-[ext_resource type="VoxelWorldDataLoader" uid="uid://b4i6imitad4s4" path="res://demo/houdini_vox_01.tres" id="1_s1s6j"]
+[ext_resource type="VoxelWorldTerrainGenerator" uid="uid://7qp8oont4vut" path="res://demo/assets/settings/terrain_example.tres" id="1_onvmd"]
 [ext_resource type="Script" uid="uid://bx00fnhlbwhlh" path="res://demo/world_editor.gd" id="2_dar0o"]
 [ext_resource type="Script" uid="uid://ojind5ypwi07" path="res://demo/auxiliary/fps_meter.gd" id="2_ytiva"]
 [ext_resource type="Script" uid="uid://cuinm7x4gnsph" path="res://demo/auxiliary/inventory/inventory.gd" id="3_j5lb4"]
 [ext_resource type="Script" uid="uid://cyvv1bjdipbml" path="res://demo/player_controller.gd" id="4_j5lb4"]
 [ext_resource type="Script" uid="uid://ddxwt6w1g63ih" path="res://addons/voxel_playground/src/voxel_compositor_debug_effect.gd" id="6_s1s6j"]
+[ext_resource type="Script" uid="uid://c26avfwk5mhkg" path="res://addons/voxel_playground/src/voxel_compositor_effect.gd" id="7_oeqrt"]
 [ext_resource type="Script" uid="uid://caqd73gwf8gg6" path="res://addons/voxel_playground/src/voxel_compositor_bridge.gd" id="8_oeqrt"]
 
 [sub_resource type="VoxelWorldCPUGenerator" id="VoxelWorldCPUGenerator_u10mr"]
-generator = ExtResource("1_s1s6j")
+generator = ExtResource("1_onvmd")
 
-[sub_resource type="ConcavePolygonShape3D" id="ConcavePolygonShape3D_s1s6j"]
+[sub_resource type="ConcavePolygonShape3D" id="ConcavePolygonShape3D_ykvhj"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_j5lb4"]
 radius = 0.4
@@ -33,23 +34,30 @@ adjustment_brightness = 0.95
 adjustment_contrast = 1.05
 adjustment_saturation = 1.1
 
-[sub_resource type="CompositorEffect" id="CompositorEffect_onvmd"]
+[sub_resource type="CompositorEffect" id="CompositorEffect_s1s6j"]
 resource_local_to_scene = false
 resource_name = ""
-enabled = true
+enabled = false
 effect_callback_type = 4
 needs_motion_vectors = false
 needs_normal_roughness = false
 script = ExtResource("6_s1s6j")
 metadata/_custom_type_script = "uid://ddxwt6w1g63ih"
 
+[sub_resource type="CompositorEffect" id="CompositorEffect_1rqa4"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = true
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
+script = ExtResource("7_oeqrt")
+metadata/_custom_type_script = "uid://c26avfwk5mhkg"
+
 [sub_resource type="Compositor" id="Compositor_xm42s"]
-compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_onvmd")])
+compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_s1s6j"), SubResource("CompositorEffect_1rqa4")])
 
 [node name="World" type="Node3D" unique_id=517888293]
-
-[node name="Node3D" type="Node3D" parent="." unique_id=105044328]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.4419103, 4.175933, 8.790336)
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1716289173]
 transform = Transform3D(0.31266654, -0.68641025, 0.6565672, -2.9802322e-08, 0.6912231, 0.7226415, -0.9498631, -0.22594577, 0.21612233, 24.37442, 27.469364, 15.728688)
@@ -77,7 +85,7 @@ transform = Transform3D(0.999642, 0.017435, 0.0203286, -0.0174314, 0.999848, -0.
 transform = Transform3D(1, 1.11711e-08, 2.98023e-08, -5.58793e-09, 1, -1.66533e-16, -1.11759e-08, 2.32783e-10, 1, 0, 0, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="VoxelWorld/VoxelWorldCollider/StaticBody3D" unique_id=581066719]
-shape = SubResource("ConcavePolygonShape3D_s1s6j")
+shape = SubResource("ConcavePolygonShape3D_ykvhj")
 
 [node name="Sun" type="DirectionalLight3D" parent="VoxelWorld" unique_id=740820291]
 transform = Transform3D(0.63628, 0.354164, -0.685359, 0.013708, 0.883062, 0.469055, 0.771337, -0.307845, 0.55702, 0, 0, 0)
@@ -242,5 +250,5 @@ compositor = SubResource("Compositor_xm42s")
 script = ExtResource("8_oeqrt")
 voxel_world = NodePath("../VoxelWorld")
 camera = NodePath("../Camera3D")
-clip_sphere_target = NodePath("../Node3D")
+clip_sphere_target = NodePath("")
 metadata/_custom_type_script = "uid://caqd73gwf8gg6"

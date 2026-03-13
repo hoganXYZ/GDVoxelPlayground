@@ -4,6 +4,11 @@
 #include "utility.glsl.inc"
 #include "voxel_world.glsl.inc"
 
+#define DEBUG_SCALE 3
+#define DEBUG_ORIGIN ivec2(20,200)
+#include "debug_print.glsl.inc"
+
+
 // ----------------------------------- CAMERA + RENDER PARAMS -----------------------------------
 
 layout(std430, set = 1, binding = 0) restrict buffer CameraParams {
@@ -46,7 +51,7 @@ layout(push_constant) uniform DebugParams {
     float edge_highlight;       // 0=off, >0=wireframe overlay strength
     float _pad3;
 
-    vec4 _reserved;
+    vec4 mouse_pos;             // xy = screen pixel coordinates
 } debug;
 
 // ----------------------------------- OUTPUT -----------------------------------
@@ -228,36 +233,46 @@ void main() {
     float range_far = debug.clip_far;
 
     // int max_layers = clamp(int(debug.xray_max_layers + 0.5), 1, 10); //10 was MAX_HITS
-    int max_layers = 10;
+    int max_layers = 20;
     float tunnel_opacity = debug.xray_alpha;
 
     // Multi-hit raymarching (results in g_hits, g_hit_count, g_step_count)
     voxelTraceWorldMultiHit(ray_origin, ray_dir, vec2(range_near, range_far));
     int hit_count = min(g_hit_count, max_layers);
-    // vec3 hitPos = ray_origin + g_hits[1].t * ray_dir;
-    // vec3 n = normalize(g_hits[1].normal);
+    vec3 hitPos = ray_origin + g_hits[0].t * ray_dir;
+    vec3 n = normalize(g_hits[0].normal);
     int steps = g_step_count;
 
+    
     // Back-to-front compositing
     // color = sampleSkyColor(ray_dir);
-    // color = vec3(hit_count * 0.3, 0.0, 0.0);
+
     // color = shadeVoxel(g_hits[1].voxel, hitPos, g_hits[1].grid_position, n, steps, ray_dir);
 
-    int layer_select = clamp(int(debug.xray_max_layers), 0, 20);
+    int layer_select = clamp(int(debug.xray_max_layers), 0, 20);  
 
-
-    // Deeper layers first (back-to-front), simplified shading only 
-    for (int i = hit_count - 1; i >= 1; i--) {
+    // Deeper layers first (back-to-front), simplified shading only
+    // for (int i = hit_count - 1; i == layer_select; i--) { 
+    for (int i = hit_count - 1; i >= layer_select; i--) {
         vec3 hitPos = ray_origin + g_hits[i].t * ray_dir;
         vec3 n = normalize(g_hits[i].normal);
-        float ao = computeAmbientOcclusion(hitPos, g_hits[i].grid_position, n);
-        // ao = mix(1.0, ao, debug.ao_intensity) * 0.7 + 0.3;
         // vec3 layer_color = getVoxelColor(g_hits[i].voxel, g_hits[i].grid_position) * ao;
+        vec3 layer_color = getVoxelColor(g_hits[i].voxel, g_hits[i].grid_position);
+        float ndotl = max(dot(n, normalize(voxelWorldProperties.sun_direction.xyz)), 0.0);
+        layer_color *= ndotl * 0.5 + 0.5; // cheap half-lambert, no shadow ray
+
+        // vec3 layer_color = vec3(clamp(-dot(n, ray_dir), 0.0, 1.0));
         // float layer_alpha = 0.5 * pow(0.7, float(i));
-        vec3 layer_color = vec3(0.1, 0.0, 0.0);
-        // float layer_alpha = hit_count;
-        color = color + layer_color;
+        // vec3 layer_color = shadeVoxel(g_hits[i].voxel, hitPos, g_hits[i].grid_position, n, steps, ray_dir); 
+        // vec3 layer_color = vec3(0.1, 0.0, 0.0);
+        float facing = clamp(-dot(n, ray_dir), 0.0, 1.0);
+        float layer_alpha = pow(facing, 4.0); // higher = steeper dropoff
+
+        // if (facing < 0.8) layer_alpha = 0.0;
+        color = mix(color, layer_color, layer_alpha);
     }
+
+    // color = vec3(1.0 - clamp(length(hitPos - cameraParams.position.xyz) / debug.clip_far, 0.0, 1.0));
 
     // Front surface last — full shading (outside the loop)
     // if (hit_count > 0) {
@@ -265,6 +280,45 @@ void main() {
     //     vec3 n = normalize(g_hits[0].normal);
     //     color = shadeVoxel(g_hits[0].voxel, hitPos, g_hits[0].grid_position, n, steps, ray_dir);
     // }
+
+    // --- Debug: sample voxel at mouse position ---
+    // Only pixels in the text region pay the cost of this second raytrace.
+    float bg = debugBg(pos, 4, 35);
+    if (bg > 0.0) {
+        color *= 0.3;
+
+        // Raytrace at the mouse pixel's screen coords
+        vec2 mouse_uv = (debug.mouse_pos.xy + 0.5) / vec2(cameraParams.width, cameraParams.height);
+        vec4 mouse_ndc = vec4(mouse_uv * 2.0 - 1.0, 0.0, 1.0);
+        vec4 mouse_world = cameraParams.inv_view_projection * mouse_ndc;
+        mouse_world /= mouse_world.w;
+        vec3 mouse_ray_dir = normalize(mouse_world.xyz - cameraParams.position.xyz);
+
+        ivec3 mouse_grid_pos;
+        vec3 mouse_normal;
+        int mouse_steps = 0;
+        float mouse_t;
+        Voxel mouse_voxel;
+        bool mouse_hit = voxelTraceWorld(cameraParams.position.xyz, mouse_ray_dir, vec2(debug.clip_near, debug.clip_far), mouse_voxel, mouse_t, mouse_grid_pos, mouse_normal, mouse_steps);
+
+        float dbg2 = 0.0;
+        if (mouse_hit) {
+            dbg2 += debugFloat(pos, 0, dot(mouse_normal, mouse_ray_dir));
+            dbg2 += debugVec3(pos, 1, vec3(mouse_grid_pos));
+            dbg2 += debugFloat(pos, 2, mouse_t);
+            dbg2 += debugVec3(pos, 3, mouse_normal);
+        } else {
+            dbg2 += debugFloat(pos, 0, -1.0);
+        }
+        if (dbg2 > 0.0) color = vec3(1.0);
+    }
+
+    // Crosshair at mouse position
+    ivec2 mouse = ivec2(debug.mouse_pos.xy);
+    if ((pos.x == mouse.x && abs(pos.y - mouse.y) < 5) ||
+        (pos.y == mouse.y && abs(pos.x - mouse.x) < 5)) {
+        color = vec3(1.0, 1.0, 0.0);
+    }
 
     imageStore(outputImage, pos, vec4(color, 1.0));
 }
