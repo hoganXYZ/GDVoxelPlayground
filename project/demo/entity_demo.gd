@@ -26,15 +26,15 @@ func _spawn_initial_entities() -> void:
 
 	for i in range(spawn_count):
 		# Spread entities in a cluster near the world center, above the terrain
-		var offset := Vector3i(
-			randi_range(-10, 10),
-			0,
-			randi_range(-10, 10)
+		var offset := Vector3(
+			randf_range(-10.0, 10.0),
+			0.0,
+			randf_range(-10.0, 10.0)
 		)
-		var pos := center + offset
-		pos.y = center.y + spawn_height_offset
+		var pos := Vector3(center) + offset
+		pos.y = float(center.y + spawn_height_offset)
 
-		# Target: wander toward center of the world
+		# Target: wander toward center of the world (stays Vector3i for flow field)
 		var target := center + Vector3i(
 			randi_range(-20, 20),
 			randi_range(-5, 5),
@@ -73,12 +73,12 @@ func _spawn_batch_at_player() -> void:
 	if not player:
 		return
 
-	var grid_pos := Vector3i(player.global_position / voxel_world.scale)
+	var grid_pos = player.global_position / voxel_world.scale
 
 	for i in range(50):
-		var offset := Vector3i(randi_range(-3, 3), 2, randi_range(-3, 3))
-		var pos := grid_pos + offset
-		var target := grid_pos + Vector3i(randi_range(-15, 15), 0, randi_range(-15, 15))
+		var offset := Vector3(randf_range(-3.0, 3.0), 2.0, randf_range(-3.0, 3.0))
+		var pos = grid_pos + offset
+		var target := Vector3i(grid_pos) + Vector3i(randi_range(-15, 15), 0, randi_range(-15, 15))
 		entity_manager.spawn_entity(pos, target)
 
 	print("Entity count: ", entity_manager.get_entity_count())
@@ -112,7 +112,7 @@ func _set_targets_to_raycast() -> void:
 	var origin := camera.global_position
 	var direction := -camera.global_transform.basis.z
 	var hit := voxel_world.raycast_world(origin, direction, 200.0)
-	
+
 
 	if hit != Vector3(-1, -1, -1):
 		var grid_target := Vector3i(hit)  # raycast already returns grid coordinates

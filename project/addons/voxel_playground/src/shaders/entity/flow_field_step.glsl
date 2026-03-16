@@ -29,7 +29,7 @@ bool isPassable(ivec3 pos) {
     if (!isValidPos(pos)) return false;
     uint voxel_idx = posToIndex(pos);
     Voxel v = getPreviousVoxel(voxel_idx);
-    return isVoxelAir(v) || isVoxelEntity(v);
+    return isVoxelAir(v);
 }
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;

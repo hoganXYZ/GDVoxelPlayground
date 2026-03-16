@@ -49,6 +49,9 @@ void EntityManager::init(RenderingDevice *rd, VoxelWorldRIDs &voxel_world_rids, 
 
     _buffer_dirty = false;
     _is_readback_pending = false;
+
+    // Set up MultiMesh rendering for entities
+    _setup_multi_mesh();
 }
 
 void EntityManager::update(float delta)
@@ -83,7 +86,7 @@ void EntityManager::_on_positions_updated(const PackedByteArray &data)
     if (data.size() < BUFFER_HEADER_SIZE)
         return;
 
-    // Read back updated entity positions from GPU
+    // Read back updated entity data from GPU
     const uint8_t *ptr = data.ptr();
     int count = std::min(_active_count, (int)_entities.size());
 
@@ -94,15 +97,19 @@ void EntityManager::_on_positions_updated(const PackedByteArray &data)
             break;
 
         const GPUEntity *gpu_entity = reinterpret_cast<const GPUEntity *>(ptr + offset);
-        // Update CPU mirror position (GPU may have moved the entity)
         _entities[i].position[0] = gpu_entity->position[0];
         _entities[i].position[1] = gpu_entity->position[1];
         _entities[i].position[2] = gpu_entity->position[2];
+        _entities[i].velocity[0] = gpu_entity->velocity[0];
+        _entities[i].velocity[1] = gpu_entity->velocity[1];
+        _entities[i].velocity[2] = gpu_entity->velocity[2];
         _entities[i].state = gpu_entity->state;
     }
+
+    _update_multi_mesh();
 }
 
-int EntityManager::spawn_entity(const Vector3i &position, const Vector3i &target)
+int EntityManager::spawn_entity(const Vector3 &position, const Vector3i &target)
 {
     if (_active_count >= MAX_ENTITIES)
     {
@@ -114,11 +121,15 @@ int EntityManager::spawn_entity(const Vector3i &position, const Vector3i &target
     entity.position[0] = position.x;
     entity.position[1] = position.y;
     entity.position[2] = position.z;
-    entity.state = (Voxel::VOXEL_TYPE_ENTITY << 24) | (1 << 16) | 0xFF; // type | state=moving | health=255
+    entity.velocity[0] = 0.0f;
+    entity.velocity[1] = 0.0f;
+    entity.velocity[2] = 0.0f;
     entity.target[0] = target.x;
     entity.target[1] = target.y;
     entity.target[2] = target.z;
-    entity.flags = (0xFF << 8); // flow_snapshot = 0xFF (uninitialized sentinel)
+    entity.state = (Voxel::VOXEL_TYPE_ENTITY << 24) | (1 << 16) | 0xFF; // type | state=moving | health=255
+    entity.flags = 0;
+    entity._pad = 0;
 
     int id = _active_count;
     _entities.push_back(entity);
@@ -143,15 +154,13 @@ void EntityManager::set_flow_field_target(const Vector3i &target)
 {
     _flow_field.compute(target);
 
-    // Also update all entity targets so the GPU has a fallback
+    // Update all entity targets so the GPU has a fallback
     for (int i = 0; i < _active_count; i++)
     {
         _entities[i].target[0] = target.x;
         _entities[i].target[1] = target.y;
         _entities[i].target[2] = target.z;
-        // Reset stuck tracking fields (flow distances changed, old snapshots are stale)
-        // Preserves squad_id (bits 16-31) + last_move_dir (bits 0-2), resets stuck/blocked/snapshot
-        _entities[i].flags = (_entities[i].flags & 0xFFFF0007) | (0xFF << 8);
+        _entities[i].flags = 0;
     }
     _buffer_dirty = true;
 }
@@ -186,12 +195,12 @@ int EntityManager::get_entity_count() const
     return _active_count;
 }
 
-Vector3i EntityManager::get_entity_position(int id) const
+Vector3 EntityManager::get_entity_position(int id) const
 {
     if (id < 0 || id >= _active_count)
-        return Vector3i(-1, -1, -1);
+        return Vector3(-1, -1, -1);
 
-    return Vector3i(_entities[id].position[0], _entities[id].position[1], _entities[id].position[2]);
+    return Vector3(_entities[id].position[0], _entities[id].position[1], _entities[id].position[2]);
 }
 
 PackedByteArray EntityManager::_build_gpu_buffer() const
@@ -221,4 +230,42 @@ void EntityManager::_upload_full_buffer()
 
     PackedByteArray buffer = _build_gpu_buffer();
     _movement_shader->update_storage_buffer_uniform(_entity_buffer_rid, buffer);
+}
+
+void EntityManager::_setup_multi_mesh()
+{
+    _multi_mesh_instance = memnew(MultiMeshInstance3D);
+    call_deferred("add_child", _multi_mesh_instance);
+
+    _multi_mesh.instantiate();
+    _multi_mesh->set_transform_format(MultiMesh::TRANSFORM_3D);
+    _multi_mesh->set_use_colors(true);
+    _multi_mesh->set_instance_count(MAX_ENTITIES);
+    _multi_mesh->set_visible_instance_count(0);
+
+    Ref<BoxMesh> box;
+    box.instantiate();
+    box->set_size(Vector3(_scale, _scale, _scale));
+    _multi_mesh->set_mesh(box);
+
+    _multi_mesh_instance->set_multimesh(_multi_mesh);
+}
+
+void EntityManager::_update_multi_mesh()
+{
+    if (_multi_mesh.is_null())
+        return;
+
+    _multi_mesh->set_visible_instance_count(_active_count);
+
+    for (int i = 0; i < _active_count; i++)
+    {
+        Transform3D xform;
+        xform.origin = Vector3(
+            _entities[i].position[0] * _scale,
+            _entities[i].position[1] * _scale,
+            _entities[i].position[2] * _scale);
+        _multi_mesh->set_instance_transform(i, xform);
+        _multi_mesh->set_instance_color(i, Color(0.9, 0.3, 0.2)); // red-orange entity color
+    }
 }
