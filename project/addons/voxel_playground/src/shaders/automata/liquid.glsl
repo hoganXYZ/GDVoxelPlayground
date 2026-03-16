@@ -1,8 +1,8 @@
 #[compute]
 #version 460
 
-#include "../utility.glsl"
-#include "../voxel_world.glsl"
+#include "../utility.glsl.inc"
+#include "../voxel_world.glsl.inc"
 
 
 ivec3 directions[4] = ivec3[](
@@ -53,6 +53,7 @@ void main() {
     uint voxel_index = voxelBricks[brick_index].voxel_data_pointer * BRICK_VOLUME + getVoxelIndexInBrick(pos); 
 
     Voxel voxel_value = getPreviousVoxel(voxel_index);
+    if(isVoxelEntity(voxel_value)) return;
     if(isVoxelLiquid(voxel_value)) {
         if(!move_water(pos, ivec3(0, -1, 0), brick_index, voxel_index, voxel_value.data, false))
         {

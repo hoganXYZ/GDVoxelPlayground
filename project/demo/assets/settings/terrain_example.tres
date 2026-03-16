@@ -2,10 +2,10 @@
 
 [resource]
 noise_frequency = 0.03
-base_height = 16
-height_variation = 23
+base_height = 36
+height_variation = 16
 flat_plot_size = Vector3i(4, 0, 4)
 plot_center = Vector3i(2, 0, 2)
 plot_noise_factor = 2
 ground_color = Color(0.5848, 0.657787, 0.68, 1)
-grass_color = Color(0.213606, 0.703123, 0.214448, 1)
+grass_color = Color(0.44872552, 0.25268352, 0.9252646, 1)

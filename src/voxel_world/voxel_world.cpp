@@ -78,6 +78,11 @@ void VoxelWorld::_bind_methods()
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "voxel_world_collider", PROPERTY_HINT_NODE_TYPE, "VoxelWorldCollider"),
                  "set_voxel_world_collider", "get_voxel_world_collider");
 
+    ClassDB::bind_method(D_METHOD("set_entity_manager", "manager"), &VoxelWorld::set_entity_manager);
+    ClassDB::bind_method(D_METHOD("get_entity_manager"), &VoxelWorld::get_entity_manager);
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "entity_manager", PROPERTY_HINT_NODE_TYPE, "EntityManager"),
+                 "set_entity_manager", "get_entity_manager");
+
     ClassDB::bind_method(D_METHOD("get_player_node"), &VoxelWorld::get_player_node);
     ClassDB::bind_method(D_METHOD("set_player_node", "player_node"), &VoxelWorld::set_player_node);
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "player_node", PROPERTY_HINT_NODE_TYPE, "Node3D"), "set_player_node",
@@ -229,7 +234,13 @@ void VoxelWorld::init()
     {
         _voxel_world_collider->init(_rd, _voxel_world_rids, scale);
     }
-    
+
+    // if entity manager set, initialize it
+    if (_entity_manager != nullptr)
+    {
+        _entity_manager->init(_rd, _voxel_world_rids, size, scale);
+    }
+
     _initialized = true;
 }
 
@@ -244,6 +255,12 @@ void VoxelWorld::update(float delta)
     if (simulation_enabled)
     {
         _update_pass->update(delta);
+    }
+
+    // Entity movement runs after automata but before cellpond
+    if (_entity_manager != nullptr)
+    {
+        _entity_manager->update(delta);
     }
 
     if (_cellpond_pass != nullptr)

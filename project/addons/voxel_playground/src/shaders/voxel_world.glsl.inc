@@ -51,6 +51,8 @@ const uint VOXEL_TYPE_WATER = 2;
 const uint VOXEL_TYPE_LAVA = 3;
 const uint VOXEL_TYPE_SAND = 4;
 const uint VOXEL_TYPE_VINE = 5;
+const uint VOXEL_TYPE_ENTITY = 6;
+const uint VOXEL_TYPE_DEBUG = 7;
 const vec3 DEFAULT_WATER_COLOR = vec3(0.1, 0.3, 0.8);
 const vec3 DEFAULT_LAVA_COLOR = vec3(4.0, 0.6, 0.1);
 const vec3 DEFAULT_VINE_COLOR = vec3(0.15, 0.55, 0.18);
@@ -128,6 +130,14 @@ bool isVoxelSolid(Voxel voxel) {
 
 bool isVoxelDynamic(Voxel voxel) {
     return isVoxelLiquid(voxel) || isVoxelType(voxel, VOXEL_TYPE_SAND) || isVoxelType(voxel, VOXEL_TYPE_VINE);
+}
+
+bool isVoxelEntity(Voxel voxel) {
+    return ((voxel.data >> 24) & 0xFF) >= VOXEL_TYPE_ENTITY;
+}
+
+uint getVoxelType(Voxel voxel) {
+    return (voxel.data >> 24) & 0xFF;
 }
 
 vec3 getVoxelColor(Voxel voxel, ivec3 pos) {

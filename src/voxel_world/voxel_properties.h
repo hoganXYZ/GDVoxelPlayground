@@ -66,6 +66,8 @@ struct Voxel
     static const unsigned int VOXEL_TYPE_LAVA = 3;
     static const unsigned int VOXEL_TYPE_SAND = 4;
     static const unsigned int VOXEL_TYPE_VINE = 5;
+    static const unsigned int VOXEL_TYPE_ENTITY = 6;
+    static const unsigned int VOXEL_TYPE_DEBUG = 7;
 
     static const Color DEFAULT_WATER_COLOR;
     static const Color DEFAULT_LAVA_COLOR;

@@ -13,6 +13,7 @@
 #include "voxel_world/cellular_automata/cellpond_rule_set.h"
 #include "voxel_world/voxel_edit/voxel_edit_pass.h"
 #include "voxel_world/colliders/voxel_world_collider.h"
+#include "voxel_world/entity/entity_manager.h"
 #include "voxel_world/generator/voxel_world_generator.h"
 
 using namespace godot;
@@ -48,6 +49,7 @@ private:
     VoxelEditPass* _edit_pass = nullptr;
     VoxelEditPass* _smooth_edit_pass = nullptr;
     VoxelWorldCollider* _voxel_world_collider = nullptr;
+    EntityManager* _entity_manager = nullptr;
 
     DirectionalLight3D* _sun_light = nullptr;
     Color ground_color = Color(0.5, 0.3, 0.15, 1.0);
@@ -92,6 +94,9 @@ public:
 
     void set_voxel_world_collider(VoxelWorldCollider* collider) {_voxel_world_collider = collider;}
     VoxelWorldCollider* get_voxel_world_collider() const { return _voxel_world_collider; }
+
+    void set_entity_manager(EntityManager* manager) { _entity_manager = manager; }
+    EntityManager* get_entity_manager() const { return _entity_manager; }
 
     void edit_world(const Vector3 &camera_origin, const Vector3 &camera_direction, const float radius, const float range, const int value);
     void edit_world_smooth(const Vector3 &camera_origin, const Vector3 &camera_direction, const float radius, const float range);

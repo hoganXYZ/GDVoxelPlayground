@@ -1,8 +1,8 @@
 #[compute]
 #version 460
 
-#include "../utility.glsl"
-#include "../voxel_world.glsl"
+#include "../utility.glsl.inc"
+#include "../voxel_world.glsl.inc"
 
 // CellPond rule buffer: flat packed uint array
 // Layout:
@@ -138,6 +138,11 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 void main() {
     ivec3 pos = ivec3(gl_GlobalInvocationID.xyz);
     if (!isValidPos(pos)) return;
+
+    uint brick_idx = getBrickIndex(pos);
+    uint voxel_idx = voxelBricks[brick_idx].voxel_data_pointer * BRICK_VOLUME + getVoxelIndexInBrick(pos);
+    Voxel center_voxel = getPreviousVoxel(voxel_idx);
+    if (isVoxelEntity(center_voxel)) return;
 
     uint rule_count = rule_data[0];
     if (rule_count == 0u) return;

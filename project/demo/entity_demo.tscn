@@ -1,0 +1,141 @@
+[gd_scene format=3 uid="uid://c150e6ott0wtn"]
+
+[ext_resource type="VoxelWorldTerrainGenerator" uid="uid://7qp8oont4vut" path="res://demo/assets/settings/terrain_example.tres" id="1_terrain"]
+[ext_resource type="Script" uid="uid://ojind5ypwi07" path="res://demo/auxiliary/fps_meter.gd" id="2_fps"]
+[ext_resource type="Script" uid="uid://cyvv1bjdipbml" path="res://demo/player_controller.gd" id="3_player"]
+[ext_resource type="Script" uid="uid://c26avfwk5mhkg" path="res://addons/voxel_playground/src/voxel_compositor_effect.gd" id="4_compositor"]
+[ext_resource type="Script" uid="uid://caqd73gwf8gg6" path="res://addons/voxel_playground/src/voxel_compositor_bridge.gd" id="5_bridge"]
+[ext_resource type="Script" uid="uid://pe6d5tj88t02" path="res://demo/entity_demo.gd" id="6_entity_demo"]
+
+[sub_resource type="VoxelWorldCPUGenerator" id="VoxelWorldCPUGenerator_1"]
+generator = ExtResource("1_terrain")
+
+[sub_resource type="ConcavePolygonShape3D" id="ConcavePolygonShape3D_88wbm"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="ImageTexture" id="ImageTexture_1"]
+
+[sub_resource type="Environment" id="Environment_1"]
+background_mode = 3
+ambient_light_source = 2
+ambient_light_color = Color(0.24, 0.24, 0.24, 1)
+tonemap_mode = 4
+tonemap_exposure = 2.02
+adjustment_brightness = 0.95
+adjustment_contrast = 1.05
+adjustment_saturation = 1.1
+
+[sub_resource type="CompositorEffect" id="CompositorEffect_1"]
+resource_local_to_scene = false
+resource_name = ""
+enabled = false
+effect_callback_type = 4
+needs_motion_vectors = false
+needs_normal_roughness = false
+script = ExtResource("4_compositor")
+metadata/_custom_type_script = "uid://c26avfwk5mhkg"
+
+[sub_resource type="Compositor" id="Compositor_1"]
+compositor_effects = Array[CompositorEffect]([SubResource("CompositorEffect_1")])
+
+[node name="World" type="Node3D" unique_id=394967958]
+
+[node name="VoxelWorld" type="VoxelWorld" parent="." unique_id=931296842 node_paths=PackedStringArray("voxel_world_collider", "entity_manager", "player_node", "sun_light")]
+generator = SubResource("VoxelWorldCPUGenerator_1")
+brick_map_size = Vector3i(8, 8, 8)
+scale = 0.25
+voxel_world_collider = NodePath("VoxelWorldCollider")
+entity_manager = NodePath("EntityManager")
+player_node = NodePath("../Player")
+sun_light = NodePath("Sun")
+ground_color = Color(0.634, 0.889, 0.96, 1)
+sky_color = Color(0.288, 0.562, 0.67, 1)
+
+[node name="VoxelWorldCollider" type="VoxelWorldCollider" parent="VoxelWorld" unique_id=1662520346 node_paths=PackedStringArray("collision_shape")]
+collider_size = Vector3i(24, 32, 24)
+collision_shape = NodePath("StaticBody3D/CollisionShape3D")
+update_interval = 10
+
+[node name="StaticBody3D" type="StaticBody3D" parent="VoxelWorld/VoxelWorldCollider" unique_id=225700597]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="VoxelWorld/VoxelWorldCollider/StaticBody3D" unique_id=1307284481]
+shape = SubResource("ConcavePolygonShape3D_88wbm")
+
+[node name="Sun" type="DirectionalLight3D" parent="VoxelWorld" unique_id=1409449841]
+transform = Transform3D(0.6362758, 0.35399908, -0.6854471, 0.014006072, 0.8830573, 0.46905613, 0.77133447, -0.3080495, 0.55690986, 0, 0, 0)
+
+[node name="EntityManager" type="EntityManager" parent="VoxelWorld" unique_id=1680963592]
+
+[node name="Player" type="CharacterBody3D" parent="." unique_id=759349518 node_paths=PackedStringArray("camera")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 12, 8)
+script = ExtResource("3_player")
+camera = NodePath("VoxelCamera")
+is_flying = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player" unique_id=770387403]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_1")
+
+[node name="VoxelCamera" type="VoxelCamera" parent="Player" unique_id=321097671 node_paths=PackedStringArray("voxel_world", "output_texture")]
+voxel_world = NodePath("../../VoxelWorld")
+output_texture = NodePath("TextureRect")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+
+[node name="Camera3D" type="Camera3D" parent="Player/VoxelCamera" unique_id=1522088904]
+fov = 90.0
+near = 0.097
+
+[node name="TextureRect" type="TextureRect" parent="Player/VoxelCamera" unique_id=316458769]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("ImageTexture_1")
+
+[node name="GUI" type="Control" parent="Player/VoxelCamera/TextureRect" unique_id=1365761075]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Target" type="ColorRect" parent="Player/VoxelCamera/TextureRect/GUI" unique_id=1842575168]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -2.5
+offset_top = -2.5
+offset_right = 2.5
+offset_bottom = 2.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="DebugLabel" type="Label" parent="Player/VoxelCamera/TextureRect/GUI" unique_id=1851882055 node_paths=PackedStringArray("reference_node")]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 23.0
+script = ExtResource("2_fps")
+reference_node = NodePath("../../..")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1758458805]
+environment = SubResource("Environment_1")
+compositor = SubResource("Compositor_1")
+
+[node name="VoxelCompositorBridge" type="Node" parent="." unique_id=1856520886 node_paths=PackedStringArray("voxel_world")]
+script = ExtResource("5_bridge")
+voxel_world = NodePath("../VoxelWorld")
+metadata/_custom_type_script = "uid://caqd73gwf8gg6"
+
+[node name="EntityDemo" type="Node3D" parent="." unique_id=1178363070 node_paths=PackedStringArray("voxel_world", "entity_manager")]
+script = ExtResource("6_entity_demo")
+voxel_world = NodePath("../VoxelWorld")
+entity_manager = NodePath("../VoxelWorld/EntityManager")
+spawn_count = 1000
