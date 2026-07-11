@@ -123,6 +123,8 @@ void VoxelWorld::_bind_methods()
     ClassDB::bind_method(D_METHOD("get_voxel_data_rid"), &VoxelWorld::get_voxel_data_rid);
     ClassDB::bind_method(D_METHOD("get_voxel_data2_rid"), &VoxelWorld::get_voxel_data2_rid);
     ClassDB::bind_method(D_METHOD("is_initialized"), &VoxelWorld::is_initialized);
+    ClassDB::bind_method(D_METHOD("get_init_version"), &VoxelWorld::get_init_version);
+    ClassDB::bind_method(D_METHOD("reinit"), &VoxelWorld::reinit);
 
     // methods
     ClassDB::bind_method(D_METHOD("edit_world", "camera_origin", "camera_direction", "radius", "range", "value"),
@@ -164,6 +166,42 @@ void VoxelWorld::_notification(int p_what)
         break;
     }
     }
+}
+
+void VoxelWorld::set_brick_map_size(const Vector3i &p_size)
+{
+    brick_map_size = p_size.clamp(Vector3i(0,0,0), Vector3i(256,256,256));
+    if (_initialized)
+        reinit();
+}
+
+void VoxelWorld::cleanup()
+{
+    if (!_initialized || _rd == nullptr)
+        return;
+
+    delete _update_pass;     _update_pass = nullptr;
+    delete _cellpond_pass;   _cellpond_pass = nullptr;
+    delete _edit_pass;       _edit_pass = nullptr;
+    delete _smooth_edit_pass; _smooth_edit_pass = nullptr;
+
+    if (_voxel_world_rids.voxel_bricks.is_valid())
+        _rd->free_rid(_voxel_world_rids.voxel_bricks);
+    if (_voxel_world_rids.voxel_data.is_valid())
+        _rd->free_rid(_voxel_world_rids.voxel_data);
+    if (_voxel_world_rids.voxel_data2.is_valid())
+        _rd->free_rid(_voxel_world_rids.voxel_data2);
+    if (_voxel_world_rids.properties.is_valid())
+        _rd->free_rid(_voxel_world_rids.properties);
+
+    _voxel_world_rids = VoxelWorldRIDs();
+    _initialized = false;
+}
+
+void VoxelWorld::reinit()
+{
+    cleanup();
+    init();
 }
 
 void VoxelWorld::init()
@@ -242,6 +280,7 @@ void VoxelWorld::init()
     }
 
     _initialized = true;
+    _init_version++;
 }
 
 void VoxelWorld::update(float delta)

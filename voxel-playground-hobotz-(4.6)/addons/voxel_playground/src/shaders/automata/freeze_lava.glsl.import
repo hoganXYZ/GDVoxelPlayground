@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://bpgmgy15uxjmt"
+path="res://.godot/imported/freeze_lava.glsl-9cee3f659b4bbacc84a1716922c0052b.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/automata/freeze_lava.glsl"
+dest_files=["res://.godot/imported/freeze_lava.glsl-9cee3f659b4bbacc84a1716922c0052b.res"]
+
+[params]
+

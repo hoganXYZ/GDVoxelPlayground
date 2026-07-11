@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://dpv7bfugy65wh"
+path="res://.godot/imported/initialize_brick_grid.glsl-b5bf5da3879e7d160131999b00456f9f.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/generators/initialize_brick_grid.glsl"
+dest_files=["res://.godot/imported/initialize_brick_grid.glsl-b5bf5da3879e7d160131999b00456f9f.res"]
+
+[params]
+

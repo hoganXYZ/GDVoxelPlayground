@@ -44,9 +44,12 @@ public:
     void set_flow_field_target(const Vector3i &target);
     void debug_draw_flow_field(int y_level);
     void debug_clear_flow_field(int y_level);
+    void debug_draw_flow_lines(int y_level, int spacing = 4);
+    void debug_clear_flow_lines(int y_level);
     void remove_entity(int id);
     int get_entity_count() const;
     Vector3 get_entity_position(int id) const;
+    MultiMeshInstance3D *get_multi_mesh_instance() const;
 
 protected:
     static void _bind_methods();

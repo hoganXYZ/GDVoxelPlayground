@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://dbpp27cmgdvc7"
+path="res://.godot/imported/composite_pass.glsl-bb19ed995656b4b25a707a8cbffe2fc8.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/multipass_setup/composite_pass.glsl"
+dest_files=["res://.godot/imported/composite_pass.glsl-bb19ed995656b4b25a707a8cbffe2fc8.res"]
+
+[params]
+

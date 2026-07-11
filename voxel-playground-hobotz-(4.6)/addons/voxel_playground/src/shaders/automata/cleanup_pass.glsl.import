@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://dpjgixrq4r7jb"
+path="res://.godot/imported/cleanup_pass.glsl-36f91b03c0a2859f4aa1aecc549a246f.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/automata/cleanup_pass.glsl"
+dest_files=["res://.godot/imported/cleanup_pass.glsl-36f91b03c0a2859f4aa1aecc549a246f.res"]
+
+[params]
+

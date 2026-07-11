@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://bra4xrxi4wowi"
+path="res://.godot/imported/flow_field_step.glsl-52e6bc18a689715de56bb91f923abbf5.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/entity/flow_field_step.glsl"
+dest_files=["res://.godot/imported/flow_field_step.glsl-52e6bc18a689715de56bb91f923abbf5.res"]
+
+[params]
+

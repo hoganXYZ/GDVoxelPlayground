@@ -33,6 +33,7 @@ private:
     bool simulation_enabled = true;
     bool auto_update_generation = false;
     bool _initialized;
+    uint32_t _init_version = 0;
 
     // RID _voxel_data_rid;
     // RID _voxel_bricks_rid;
@@ -56,6 +57,7 @@ private:
     Color sky_color = Color(1.0, 1.0, 1.0, 1.0);
 
     void init();
+    void cleanup();
     void update(float delta);
 
     Vector3i get_voxel_world_position(const Vector3 &position) const {
@@ -67,7 +69,8 @@ public:
     ~VoxelWorld();    
 
     // Property accessors for size.
-    void set_brick_map_size(const Vector3i &p_size) { brick_map_size = p_size.clamp(Vector3i(0,0,0), Vector3i(256,256,256)); }
+    void set_brick_map_size(const Vector3i &p_size);
+    void reinit();
     Vector3i get_brick_map_size() const { return brick_map_size; }
 
     void set_scale(float p_scale) { scale = p_scale; }
@@ -112,6 +115,7 @@ public:
     RID get_voxel_data_rid() const { return _voxel_world_rids.voxel_data; }
     RID get_voxel_data2_rid() const { return _voxel_world_rids.voxel_data2; }
     bool is_initialized() const { return _initialized; }
+    uint32_t get_init_version() const { return _init_version; }
 
     Ref<VoxelWorldGenerator> get_generator() const { return generator;}
     void set_generator(const Ref<VoxelWorldGenerator> p_generator) {

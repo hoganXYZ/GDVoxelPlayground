@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://dybisdxkhxtnl"
+path="res://.godot/imported/entity_movement.glsl-a81b86da4ea0a77d48cf38d40b9cdab5.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/entity/entity_movement.glsl"
+dest_files=["res://.godot/imported/entity_movement.glsl-a81b86da4ea0a77d48cf38d40b9cdab5.res"]
+
+[params]
+

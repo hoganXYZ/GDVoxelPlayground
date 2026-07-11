@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://w4q5u0i04npu"
+path="res://.godot/imported/trails.glsl-ebfa19150b9f6a13ab53da001bcd57de.res"
+
+[deps]
+
+source_file="res://10_compositor/vhs_trails_effect/trails.glsl"
+dest_files=["res://.godot/imported/trails.glsl-ebfa19150b9f6a13ab53da001bcd57de.res"]
+
+[params]
+

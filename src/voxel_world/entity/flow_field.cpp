@@ -10,6 +10,7 @@ FlowField::~FlowField()
     delete _init_shader;
     delete _step_shader;
     delete _debug_shader;
+    delete _debug_lines_shader;
 }
 
 void FlowField::init(RenderingDevice *rd, VoxelWorldRIDs &voxel_world_rids, Vector3i world_size)
@@ -57,6 +58,16 @@ void FlowField::init(RenderingDevice *rd, VoxelWorldRIDs &voxel_world_rids, Vect
         _distance_buffer_rid, RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 0, 1);
 
     _debug_shader->finish_create_uniforms();
+
+    // --- Debug lines shader: streamline flow visualization ---
+    _debug_lines_shader = new ComputeShader(
+        "res://addons/voxel_playground/src/shaders/entity/flow_field_debug_lines.glsl", rd);
+    voxel_world_rids.add_voxel_buffers(_debug_lines_shader);
+
+    _debug_lines_shader->add_existing_buffer(
+        _distance_buffer_rid, RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 0, 1);
+
+    _debug_lines_shader->finish_create_uniforms();
 }
 
 void FlowField::compute(const Vector3i &target)
@@ -156,4 +167,57 @@ void FlowField::debug_clear(int y_level)
     memcpy(pc_data.ptrw(), &pc, sizeof(DebugPushConstant));
     _debug_shader->set_push_constant(pc_data);
     _debug_shader->compute(Vector3i(group_count, 1, 1), false);
+}
+
+void FlowField::debug_draw_lines(int y_level, int spacing)
+{
+    if (_debug_lines_shader == nullptr)
+        return;
+
+    if (y_level < 0 || y_level >= _world_size.y)
+        return;
+
+    if (spacing < 2) spacing = 2;
+
+    int seeds_x = (_world_size.x + spacing - 1) / spacing;
+    int seeds_z = (_world_size.z + spacing - 1) / spacing;
+    int total_seeds = seeds_x * seeds_z;
+    int group_count = std::max(1, (int)std::ceil((float)total_seeds / 64.0f));
+
+    DebugLinesPushConstant pc = {};
+    pc.y_level = y_level;
+    pc.mode = 0; // draw
+    pc.max_distance = static_cast<uint32_t>((_world_size.x - 1) + (_world_size.y - 1) + (_world_size.z - 1));
+    pc.line_spacing = static_cast<uint32_t>(spacing);
+
+    PackedByteArray pc_data;
+    pc_data.resize(sizeof(DebugLinesPushConstant));
+    memcpy(pc_data.ptrw(), &pc, sizeof(DebugLinesPushConstant));
+    _debug_lines_shader->set_push_constant(pc_data);
+    _debug_lines_shader->compute(Vector3i(group_count, 1, 1), false);
+}
+
+void FlowField::debug_clear_lines(int y_level)
+{
+    if (_debug_lines_shader == nullptr)
+        return;
+
+    if (y_level < 0 || y_level >= _world_size.y)
+        return;
+
+    // Clear mode uses the full slice size (same as debug_clear)
+    int slice_cells = _world_size.x * _world_size.z;
+    int group_count = std::max(1, (int)std::ceil((float)slice_cells / 64.0f));
+
+    DebugLinesPushConstant pc = {};
+    pc.y_level = y_level;
+    pc.mode = 1; // clear
+    pc.max_distance = 0;
+    pc.line_spacing = 4;
+
+    PackedByteArray pc_data;
+    pc_data.resize(sizeof(DebugLinesPushConstant));
+    memcpy(pc_data.ptrw(), &pc, sizeof(DebugLinesPushConstant));
+    _debug_lines_shader->set_push_constant(pc_data);
+    _debug_lines_shader->compute(Vector3i(group_count, 1, 1), false);
 }

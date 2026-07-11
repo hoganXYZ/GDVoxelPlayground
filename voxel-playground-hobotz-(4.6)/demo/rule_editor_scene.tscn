@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://dcgvejxo2hgn6"]
+
+[ext_resource type="Script" uid="uid://blmpduni5gxkj" path="res://demo/rule_editor.gd" id="1"]
+
+[node name="RuleEditor" type="Node3D" unique_id=1362586575]
+script = ExtResource("1")

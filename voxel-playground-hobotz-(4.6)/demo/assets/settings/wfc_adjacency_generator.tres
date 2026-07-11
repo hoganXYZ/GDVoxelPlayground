@@ -1,0 +1,8 @@
+[gd_resource type="VoxelWorldWFCAdjacencyGenerator" load_steps=2 format=3 uid="uid://bumpo3h1v6xwu"]
+
+[sub_resource type="VoxelDataVox" id="VoxelDataVox_j5lb4"]
+file_path = "res://demo/assets/voxels/target.vox"
+
+[resource]
+voxel_data = SubResource("VoxelDataVox_j5lb4")
+target_grid_size = Vector3i(16, 16, 16)

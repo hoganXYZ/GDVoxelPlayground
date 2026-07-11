@@ -21,6 +21,8 @@ public:
 
     void debug_draw(int y_level);
     void debug_clear(int y_level);
+    void debug_draw_lines(int y_level, int spacing = 4);
+    void debug_clear_lines(int y_level);
 
     RID get_distance_buffer_rid() const { return _distance_buffer_rid; }
 
@@ -47,9 +49,18 @@ private:
         uint32_t pad;
     };
 
+    struct DebugLinesPushConstant
+    {
+        int y_level;
+        uint32_t mode;         // 0 = draw, 1 = clear
+        uint32_t max_distance;
+        uint32_t line_spacing;
+    };
+
     ComputeShader *_init_shader = nullptr;
     ComputeShader *_step_shader = nullptr;
     ComputeShader *_debug_shader = nullptr;
+    ComputeShader *_debug_lines_shader = nullptr;
     RenderingDevice *_rd = nullptr;
 
     RID _distance_buffer_rid;

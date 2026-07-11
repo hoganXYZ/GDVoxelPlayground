@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://bgkyi6q4w4k64"
+path="res://.godot/imported/floating_island.glsl-564f744fe46710ba06f37caf369c7fd5.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/generators/floating_island.glsl"
+dest_files=["res://.godot/imported/floating_island.glsl-564f744fe46710ba06f37caf369c7fd5.res"]
+
+[params]
+

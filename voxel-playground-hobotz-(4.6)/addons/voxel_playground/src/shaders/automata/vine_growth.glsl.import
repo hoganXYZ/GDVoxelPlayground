@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://db2ge5ptdiqpv"
+path="res://.godot/imported/vine_growth.glsl-b2edb4707a68925b4911e6eca8d017de.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/automata/vine_growth.glsl"
+dest_files=["res://.godot/imported/vine_growth.glsl-b2edb4707a68925b4911e6eca8d017de.res"]
+
+[params]
+

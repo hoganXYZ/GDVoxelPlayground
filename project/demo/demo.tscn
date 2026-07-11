@@ -12,7 +12,7 @@
 [sub_resource type="VoxelWorldCPUGenerator" id="VoxelWorldCPUGenerator_u10mr"]
 generator = ExtResource("1_onvmd")
 
-[sub_resource type="ConcavePolygonShape3D" id="ConcavePolygonShape3D_ykvhj"]
+[sub_resource type="ConcavePolygonShape3D" id="ConcavePolygonShape3D_onvmd"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_j5lb4"]
 radius = 0.4
@@ -85,7 +85,7 @@ transform = Transform3D(0.999642, 0.017435, 0.0203286, -0.0174314, 0.999848, -0.
 transform = Transform3D(1, 1.11711e-08, 2.98023e-08, -5.58793e-09, 1, -1.66533e-16, -1.11759e-08, 2.32783e-10, 1, 0, 0, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="VoxelWorld/VoxelWorldCollider/StaticBody3D" unique_id=581066719]
-shape = SubResource("ConcavePolygonShape3D_ykvhj")
+shape = SubResource("ConcavePolygonShape3D_onvmd")
 
 [node name="Sun" type="DirectionalLight3D" parent="VoxelWorld" unique_id=740820291]
 transform = Transform3D(0.63628, 0.354164, -0.685359, 0.013708, 0.883062, 0.469055, 0.771337, -0.307845, 0.55702, 0, 0, 0)
@@ -246,9 +246,8 @@ reference_node = NodePath("../../..")
 environment = SubResource("Environment_dar0o")
 compositor = SubResource("Compositor_xm42s")
 
-[node name="VoxelCompositorBridge" type="Node" parent="." unique_id=1507487504 node_paths=PackedStringArray("voxel_world", "camera", "clip_sphere_target")]
+[node name="VoxelCompositorBridge" type="Node" parent="." unique_id=1507487504 node_paths=PackedStringArray("voxel_world", "camera")]
 script = ExtResource("8_oeqrt")
 voxel_world = NodePath("../VoxelWorld")
 camera = NodePath("../Camera3D")
-clip_sphere_target = NodePath("")
 metadata/_custom_type_script = "uid://caqd73gwf8gg6"

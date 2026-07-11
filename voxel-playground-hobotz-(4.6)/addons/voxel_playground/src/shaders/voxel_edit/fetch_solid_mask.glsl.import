@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://cnpfwww7owfsk"
+path="res://.godot/imported/fetch_solid_mask.glsl-0ad9c5ad20e8730ef0bf84f339ec9c84.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/voxel_edit/fetch_solid_mask.glsl"
+dest_files=["res://.godot/imported/fetch_solid_mask.glsl-0ad9c5ad20e8730ef0bf84f339ec9c84.res"]
+
+[params]
+

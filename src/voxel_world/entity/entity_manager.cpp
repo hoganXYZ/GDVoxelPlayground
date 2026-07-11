@@ -14,9 +14,12 @@ void EntityManager::_bind_methods()
     ClassDB::bind_method(D_METHOD("set_flow_field_target", "target"), &EntityManager::set_flow_field_target);
     ClassDB::bind_method(D_METHOD("debug_draw_flow_field", "y_level"), &EntityManager::debug_draw_flow_field);
     ClassDB::bind_method(D_METHOD("debug_clear_flow_field", "y_level"), &EntityManager::debug_clear_flow_field);
+    ClassDB::bind_method(D_METHOD("debug_draw_flow_lines", "y_level", "spacing"), &EntityManager::debug_draw_flow_lines, DEFVAL(4));
+    ClassDB::bind_method(D_METHOD("debug_clear_flow_lines", "y_level"), &EntityManager::debug_clear_flow_lines);
     ClassDB::bind_method(D_METHOD("remove_entity", "id"), &EntityManager::remove_entity);
     ClassDB::bind_method(D_METHOD("get_entity_count"), &EntityManager::get_entity_count);
     ClassDB::bind_method(D_METHOD("get_entity_position", "id"), &EntityManager::get_entity_position);
+    ClassDB::bind_method(D_METHOD("get_multi_mesh_instance"), &EntityManager::get_multi_mesh_instance);
 }
 
 void EntityManager::init(RenderingDevice *rd, VoxelWorldRIDs &voxel_world_rids, Vector3i world_size, float scale)
@@ -175,6 +178,16 @@ void EntityManager::debug_clear_flow_field(int y_level)
     _flow_field.debug_clear(y_level);
 }
 
+void EntityManager::debug_draw_flow_lines(int y_level, int spacing)
+{
+    _flow_field.debug_draw_lines(y_level, spacing);
+}
+
+void EntityManager::debug_clear_flow_lines(int y_level)
+{
+    _flow_field.debug_clear_lines(y_level);
+}
+
 void EntityManager::remove_entity(int id)
 {
     if (id < 0 || id >= _active_count)
@@ -201,6 +214,11 @@ Vector3 EntityManager::get_entity_position(int id) const
         return Vector3(-1, -1, -1);
 
     return Vector3(_entities[id].position[0], _entities[id].position[1], _entities[id].position[2]);
+}
+
+MultiMeshInstance3D *EntityManager::get_multi_mesh_instance() const
+{
+    return _multi_mesh_instance;
 }
 
 PackedByteArray EntityManager::_build_gpu_buffer() const

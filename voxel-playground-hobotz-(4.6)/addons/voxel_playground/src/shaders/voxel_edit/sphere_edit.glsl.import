@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://ggxttwpxca70"
+path="res://.godot/imported/sphere_edit.glsl-2ed3f9cefa9ff907b6a4bf0cf3895d30.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/voxel_edit/sphere_edit.glsl"
+dest_files=["res://.godot/imported/sphere_edit.glsl-2ed3f9cefa9ff907b6a4bf0cf3895d30.res"]
+
+[params]
+
