@@ -1,12 +1,11 @@
 [gd_resource type="VoxelWorldTerrainGenerator" format=3 uid="uid://7qp8oont4vut"]
 
 [resource]
-noise_frequency = 0.025
-noise_octaves = 2
+noise_frequency = 0.0
+noise_octaves = 1
 base_height = 33
-height_variation = 32
-flat_plot_size = Vector3i(2, 2, 2)
+height_variation = 0
+flat_plot_size = Vector3i(4, 2, 4)
 plot_center = Vector3i(4, 0, 4)
-plot_noise_factor = 1
-ground_color = Color(0.5848, 0.657787, 0.68, 1)
-grass_color = Color(0.44872552, 0.25268352, 0.9252646, 1)
+ground_color = Color(0.1634, 0.18379334, 0.19, 1)
+grass_color = Color(0.14, 0.14, 0.14, 1)

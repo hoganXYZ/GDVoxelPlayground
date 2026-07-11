@@ -1,8 +1,8 @@
 #[compute]
 #version 460
 
-#include "../utility.glsl"
-#include "../voxel_world.glsl"
+#include "../utility.glsl.inc"
+#include "../voxel_world.glsl.inc"
 
 
 layout(std430, set = 1, binding = 0) restrict buffer Params {

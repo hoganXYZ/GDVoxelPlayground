@@ -1,8 +1,8 @@
 #[compute]
 #version 460
 
-#include "../utility.glsl"
-#include "../voxel_world.glsl"
+#include "../utility.glsl.inc"
+#include "../voxel_world.glsl.inc"
 
 // 6 possible growth directions
 ivec3 vine_directions[6] = ivec3[](

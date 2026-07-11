@@ -1,8 +1,8 @@
 #[compute]
 #version 460
 
-#include "../utility.glsl"
-#include "../voxel_world.glsl"
+#include "../utility.glsl.inc"
+#include "../voxel_world.glsl.inc"
 
 layout(local_size_x = 4, local_size_y = 2, local_size_z = 4) in;
 

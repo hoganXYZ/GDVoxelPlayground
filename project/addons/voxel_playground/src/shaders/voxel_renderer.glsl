@@ -53,7 +53,9 @@ vec3 blinnPhongShading(vec3 baseColor, vec3 normal, vec3 lightDir, vec3 lightCol
     return result;
 }
 
-layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+// 32x32 = 1024 threads/group silently fails on the macOS Metal backend
+// (register-heavy kernel lowers the per-pipeline thread limit below 1024).
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
     if (pos.x >= params.width || pos.y >= params.height) return;

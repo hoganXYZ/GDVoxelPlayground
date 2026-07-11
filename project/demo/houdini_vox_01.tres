@@ -1,8 +1,0 @@
-[gd_resource type="VoxelWorldDataLoader" format=3 uid="uid://b4i6imitad4s4"]
-
-[sub_resource type="VoxelDataVox" id="VoxelDataVox_2dyxm"]
-file_path = "res://demo/sphere.vox"
-add_color_noise = true
-
-[resource]
-voxel_data = SubResource("VoxelDataVox_2dyxm")

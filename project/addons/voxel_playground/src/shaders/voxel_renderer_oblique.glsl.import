@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://d2eljdnn8myae"
+path="res://.godot/imported/voxel_renderer_oblique.glsl-d162380574768c29f2c68826edf15e67.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/voxel_renderer_oblique.glsl"
+dest_files=["res://.godot/imported/voxel_renderer_oblique.glsl-d162380574768c29f2c68826edf15e67.res"]
+
+[params]
+

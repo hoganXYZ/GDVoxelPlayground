@@ -1,5 +1,6 @@
 #include "voxel_camera.h"
 #include "utility/utils.h"
+#include <godot_cpp/variant/callable_method_pointer.hpp>
 
 void VoxelCamera::_bind_methods()
 {
@@ -39,7 +40,12 @@ void VoxelCamera::_notification(int p_what)
         break;
     }
     case NOTIFICATION_READY: {
-        init();
+        // The camera can be READY before a sibling VoxelWorld (READY fires in
+        // tree order), and init() needs the world's GPU buffers to exist.
+        if (voxel_world != nullptr && !voxel_world->is_initialized())
+            callable_mp(this, &VoxelCamera::init).call_deferred();
+        else
+            init();
         break;
     }
     case NOTIFICATION_INTERNAL_PROCESS: {
@@ -101,6 +107,11 @@ void VoxelCamera::init()
         UtilityFunctions::printerr("No voxel world set.");
         return;
     }
+    if (!voxel_world->is_initialized())
+    {
+        UtilityFunctions::printerr("VoxelCamera: voxel world failed to initialize, cannot set up renderer.");
+        return;
+    }
 
     _rd = RenderingServer::get_singleton()->get_rendering_device();
 
@@ -111,8 +122,16 @@ void VoxelCamera::init()
 
     projection_matrix = Projection::create_perspective(fov, static_cast<float>(resolution.width) / resolution.height, near, far, false);
 
+    VoxelWorldProperties world_props = voxel_world->get_voxel_properties();
+    UtilityFunctions::print("VoxelCamera: init at ", get_global_transform().get_origin(),
+                            " | resolution ", resolution, " fov ", fov);
+    UtilityFunctions::print("VoxelCamera: world grid_size ", world_props.grid_size,
+                            " brick_grid_size ", world_props.brick_grid_size,
+                            " scale ", world_props.scale,
+                            " (world AABB max ", Vector3(world_props.grid_size.x, world_props.grid_size.y, world_props.grid_size.z) * world_props.scale, ")");
+
     // setup compute shader
-    cs = new ComputeShader("res://addons/voxel_playground/src/shaders/voxel_renderer.glsl", _rd, {"#define TESTe"});
+    cs = new ComputeShader("res://addons/voxel_playground/src/shaders/voxel_renderer_oblique.glsl", _rd, {"#define TESTe"});
 
     //--------- Voxel BUFFERS ---------    
     voxel_world->get_voxel_world_rids().add_voxel_buffers(cs);    
@@ -175,8 +194,19 @@ void VoxelCamera::render()
 {
     if (cs == nullptr || !cs->check_ready())
         return;
+    // fov acts as the zoom control for the oblique renderer; sync it when changed
+    if (render_parameters.fov != fov)
+    {
+        render_parameters.fov = fov;
+        cs->update_storage_buffer_uniform(render_parameters_rid, render_parameters.to_packed_byte_array());
+    }
+
     // update rendering parameters
     Vector3 camera_position = get_global_transform().get_origin();
+    if (camera_parameters.frame_index == 0)
+        UtilityFunctions::print("VoxelCamera: first render — pos ", camera_position,
+                                " forward ", -get_global_transform().get_basis().get_column(2),
+                                " dispatching ", render_parameters.width, "x", render_parameters.height);
     Projection VP = projection_matrix * get_global_transform().affine_inverse();
     Projection IVP = VP.inverse();
 
@@ -188,7 +218,33 @@ void VoxelCamera::render()
 
     // render
     Vector2i Size = {render_parameters.width, render_parameters.height};
-    cs->compute({static_cast<int32_t>(std::ceil(Size.x / 32.0f)), static_cast<int32_t>(std::ceil(Size.y / 32.0f)), 1}, false);
+    cs->compute({static_cast<int32_t>(std::ceil(Size.x / 16.0f)), static_cast<int32_t>(std::ceil(Size.y / 16.0f)), 1}, false);
+
+    // One-shot readback to verify imageStore writes are landing (debug)
+    if (camera_parameters.frame_index == 5)
+    {
+        PackedByteArray params_data = cs->get_storage_buffer_uniform(render_parameters_rid);
+        if (params_data.size() >= 28)
+        {
+            const int *pi = reinterpret_cast<const int *>(params_data.ptr() + 16);
+            const float *pf = reinterpret_cast<const float *>(params_data.ptr() + 24);
+            UtilityFunctions::print("VoxelCamera: params buffer on GPU — width ", pi[0], " height ", pi[1], " fov ", pf[0]);
+        }
+        PackedByteArray tex_data = cs->get_image_uniform_buffer(output_texture_rid, 0);
+        int64_t center = (int64_t)(render_parameters.height / 2) * render_parameters.width * 16 + (render_parameters.width / 2) * 16;
+        if (tex_data.size() >= center + 16)
+        {
+            const float *p = reinterpret_cast<const float *>(tex_data.ptr() + center);
+            int64_t nonzero = 0;
+            const uint8_t *b = tex_data.ptr();
+            for (int64_t i = 0; i < tex_data.size(); i++)
+                nonzero += (b[i] != 0);
+            UtilityFunctions::print("VoxelCamera: readback — bytes ", tex_data.size(), " nonzero ", nonzero,
+                                    " center RGBA (", p[0], ", ", p[1], ", ", p[2], ", ", p[3], ")");
+        }
+        else
+            UtilityFunctions::print("VoxelCamera: readback — unexpected size ", tex_data.size());
+    }
     
     { // post processing
 
