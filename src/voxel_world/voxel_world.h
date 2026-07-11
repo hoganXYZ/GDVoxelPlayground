@@ -9,6 +9,7 @@
 
 #include "voxel_world/voxel_properties.h"
 #include "voxel_world/cellular_automata/voxel_world_update_pass.h"
+#include "voxel_world/cellular_automata/voxel_element_set.h"
 #include "voxel_world/cellular_automata/cellpond_update_pass.h"
 #include "voxel_world/cellular_automata/cellpond_rule_set.h"
 #include "voxel_world/voxel_edit/voxel_edit_pass.h"
@@ -44,6 +45,7 @@ private:
     Node3D* player_node = nullptr;
 
     Ref<VoxelWorldGenerator> generator;
+    Ref<VoxelElementSet> _element_set;
     Ref<CellPondRuleSet> _cellpond_rules;
     VoxelWorldUpdatePass* _update_pass = nullptr;
     CellPondUpdatePass* _cellpond_pass = nullptr;
@@ -127,6 +129,13 @@ public:
     Ref<CellPondRuleSet> get_cellpond_rules() const { return _cellpond_rules; }
     void set_cellpond_rules(const Ref<CellPondRuleSet> p_rules) { _cellpond_rules = p_rules; }
     void upload_cellpond_rules();
+
+    // Data-driven element system: the element set is uploaded as GPU tables;
+    // mutate it at runtime (add_element etc.) and it re-uploads automatically.
+    Ref<VoxelElementSet> get_element_set() const { return _element_set; }
+    void set_element_set(const Ref<VoxelElementSet> &p_set);
+    void upload_elements();
+
     Dictionary get_voxel_at(const Vector3i &grid_pos);
 };
 

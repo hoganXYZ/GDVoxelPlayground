@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ca_test_scene01"]
+
+[ext_resource type="Script" path="res://tests/test_ca.gd" id="1_test"]
+
+[node name="CATest" type="Node3D"]
+script = ExtResource("1_test")

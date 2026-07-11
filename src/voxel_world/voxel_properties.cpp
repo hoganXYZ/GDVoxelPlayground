@@ -11,6 +11,15 @@ void godot::VoxelWorldRIDs::add_voxel_buffers(ComputeShader *shader)
     shader->add_existing_buffer(voxel_data2, RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 3, 0);
 }
 
+void godot::VoxelWorldRIDs::add_ca_buffers(ComputeShader *shader)
+{
+    shader->add_existing_buffer(element_table, RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 8, 1);
+    shader->add_existing_buffer(reaction_rules, RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 9, 1);
+    shader->add_existing_buffer(voxel_aux, RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 10, 1);
+    shader->add_existing_buffer(voxel_aux2, RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 11, 1);
+    shader->add_existing_buffer(behavior_ops, RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 12, 1);
+}
+
 void godot::VoxelWorldRIDs::set_voxel_data(const std::vector<Voxel> &voxel_data)
 {
     if (voxel_data.size() != voxel_count) {

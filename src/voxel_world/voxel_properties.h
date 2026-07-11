@@ -201,12 +201,21 @@ struct VoxelWorldRIDs
     RID voxel_data;
     RID voxel_data2;
 
+    // data-driven cellular automata tables + per-voxel aux channel (set 1, bindings 8-12)
+    RID element_table;
+    RID reaction_rules;
+    RID voxel_aux;
+    RID voxel_aux2;
+    RID behavior_ops;
+
     size_t brick_count;
     size_t voxel_count;
 
     RenderingDevice *rendering_device = nullptr;
 
     void add_voxel_buffers(ComputeShader *shader);
+    // for shaders that include voxel_elements.glsl.inc
+    void add_ca_buffers(ComputeShader *shader);
     void set_voxel_data(const std::vector<Voxel> &voxel_data);
 };
 } // namespace godot

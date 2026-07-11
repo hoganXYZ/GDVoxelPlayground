@@ -133,7 +133,7 @@ bool isVoxelDynamic(Voxel voxel) {
 }
 
 bool isVoxelEntity(Voxel voxel) {
-    return ((voxel.data >> 24) & 0xFF) >= VOXEL_TYPE_ENTITY;
+    return ((voxel.data >> 24) & 0xFF) == VOXEL_TYPE_ENTITY;
 }
 
 uint getVoxelType(Voxel voxel) {
@@ -185,6 +185,21 @@ void setBothVoxelBuffers(uint index, Voxel voxel)
 {
     voxelData[index] = voxel;
     voxelData2[index] = voxel;
+}
+
+// Atomically claim a cell in the current (write) buffer. Returns the original value.
+uint casVoxelCurrent(uint index, uint expected, uint new_data) {
+    if (voxelWorldProperties.frame % 2 == 0)
+        return atomicCompSwap(voxelData[index].data, expected, new_data);
+    return atomicCompSwap(voxelData2[index].data, expected, new_data);
+}
+
+// Atomically take/replace a cell in the previous (read) buffer. Used to claim a
+// voxel's *content* (swaps, deletes) so its own thread sees it is gone.
+uint casVoxelPrevious(uint index, uint expected, uint new_data) {
+    if (voxelWorldProperties.frame % 2 == 0)
+        return atomicCompSwap(voxelData2[index].data, expected, new_data);
+    return atomicCompSwap(voxelData[index].data, expected, new_data);
 }
 
 // -------------------------------------- UTILS --------------------------------------

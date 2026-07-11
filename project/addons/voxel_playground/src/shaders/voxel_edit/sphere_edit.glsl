@@ -3,6 +3,7 @@
 
 #include "../utility.glsl.inc"
 #include "../voxel_world.glsl.inc"
+#include "../voxel_elements.glsl.inc"
 
 layout(std430, set = 1, binding = 0) restrict buffer Params {
     vec4 camera_origin;
@@ -60,7 +61,9 @@ void main() {
                 voxel = createVineVoxel(world_pos, 15u);
         }
 
-        if(isAir ^^ isVoxelAir(voxel))
+        if(isAir ^^ isVoxelAir(voxel)) {
             setBothVoxelBuffers(voxel_index, voxel);
+            setBothAux(voxel_index, defaultAuxFor(getVoxelType(voxel)));
+        }
     }
 }

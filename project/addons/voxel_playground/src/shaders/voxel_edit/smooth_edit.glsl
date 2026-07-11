@@ -3,6 +3,7 @@
 
 #include "../utility.glsl.inc"
 #include "../voxel_world.glsl.inc"
+#include "../voxel_elements.glsl.inc"
 
 layout(std430, set = 1, binding = 0) restrict buffer Params {
     vec4 camera_origin;
@@ -72,6 +73,7 @@ void main() {
         vec3 avg_color = color_sum / float(solid_count);
         Voxel new_voxel = createVoxel(dominant_type, avg_color);
         setBothVoxelBuffers(voxel_index, new_voxel);
+        setBothAux(voxel_index, defaultAuxFor(dominant_type));
     } else if (!center_is_air && air_count > 3) {
         // Erode: this solid voxel is mostly surrounded by air — remove it
         setBothVoxelBuffers(voxel_index, createAirVoxel());

@@ -25,6 +25,7 @@ VoxelEditPass::VoxelEditPass(String shader_path, RenderingDevice * rd, VoxelWorl
 
     edit_shader = new ComputeShader(shader_path, rd);
     voxel_world_rids.add_voxel_buffers(edit_shader);
+    voxel_world_rids.add_ca_buffers(edit_shader); // edits initialize the aux channel
     edit_shader->add_existing_buffer(_edit_params_rid, RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 0, 1);
     edit_shader->finish_create_uniforms();
 }

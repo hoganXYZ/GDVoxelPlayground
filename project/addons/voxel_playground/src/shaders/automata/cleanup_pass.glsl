@@ -3,6 +3,7 @@
 
 #include "../utility.glsl.inc"
 #include "../voxel_world.glsl.inc"
+#include "../voxel_elements.glsl.inc"
 
 layout(local_size_x = 4, local_size_y = 2, local_size_z = 4) in;
 
@@ -24,7 +25,8 @@ void main() {
                 uint voxel_index = voxelBricks[brick_index].voxel_data_pointer * BRICK_VOLUME
                                     + getVoxelIndexInBrick(world_pos); 
                 
-                if(isVoxelDynamic(getPreviousVoxel(voxel_index))) {
+                Voxel prev_voxel = getPreviousVoxel(voxel_index);
+                if(!isVoxelAir(prev_voxel) && isTypeDynamic(getVoxelType(prev_voxel))) {
                     setPreviousVoxel(voxel_index, createAirVoxel());
                 }
                 

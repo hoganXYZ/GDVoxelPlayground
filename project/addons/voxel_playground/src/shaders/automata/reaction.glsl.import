@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://c1njetasjkm7j"
+path="res://.godot/imported/reaction.glsl-d9ed182cd435b8b3b0606c26a8b1befb.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/automata/reaction.glsl"
+dest_files=["res://.godot/imported/reaction.glsl-d9ed182cd435b8b3b0606c26a8b1befb.res"]
+
+[params]
+

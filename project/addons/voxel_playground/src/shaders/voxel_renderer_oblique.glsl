@@ -82,6 +82,8 @@ vec3 blinnPhongShading(vec3 baseColor, vec3 normal, vec3 lightDir, vec3 lightCol
     vec3 result = 0.25 * shadow * specular;
     result += (shadow * 0.5 + 0.5) * diffuse;
     result += 0.2 * ambient;
+    // Overriding and just returning base color
+    result = baseColor;
     return result;
 }
 
@@ -187,6 +189,8 @@ void main() {
     if(emission < 1) {
         float shadow = computeShadow(hitPos, normal, voxelWorldProperties.sun_direction.xyz);
         float ao = computeAmbientOcclusion(hitPos, grid_position, normal) * 0.7 + 0.3;
+        // override ao for now
+        //ao = 1.0;
         color = ao * blinnPhongShading(color, normal, normalize(voxelWorldProperties.sun_direction.xyz), voxelWorldProperties.sun_color.rgb, voxel_view_dir, shadow);
     }
 

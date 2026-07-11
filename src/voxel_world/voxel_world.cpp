@@ -107,6 +107,13 @@ void VoxelWorld::_bind_methods()
     ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "cellpond_rules", PROPERTY_HINT_RESOURCE_TYPE, "CellPondRuleSet"),
                  "set_cellpond_rules", "get_cellpond_rules");
 
+    // Element system
+    ClassDB::bind_method(D_METHOD("get_element_set"), &VoxelWorld::get_element_set);
+    ClassDB::bind_method(D_METHOD("set_element_set", "element_set"), &VoxelWorld::set_element_set);
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "element_set", PROPERTY_HINT_RESOURCE_TYPE, "VoxelElementSet"),
+                 "set_element_set", "get_element_set");
+    ClassDB::bind_method(D_METHOD("upload_elements"), &VoxelWorld::upload_elements);
+
     // Generation controls
     ClassDB::bind_method(D_METHOD("get_auto_update_generation"), &VoxelWorld::get_auto_update_generation);
     ClassDB::bind_method(D_METHOD("set_auto_update_generation", "enabled"), &VoxelWorld::set_auto_update_generation);
@@ -193,6 +200,16 @@ void VoxelWorld::cleanup()
         _rd->free_rid(_voxel_world_rids.voxel_data2);
     if (_voxel_world_rids.properties.is_valid())
         _rd->free_rid(_voxel_world_rids.properties);
+    if (_voxel_world_rids.element_table.is_valid())
+        _rd->free_rid(_voxel_world_rids.element_table);
+    if (_voxel_world_rids.reaction_rules.is_valid())
+        _rd->free_rid(_voxel_world_rids.reaction_rules);
+    if (_voxel_world_rids.voxel_aux.is_valid())
+        _rd->free_rid(_voxel_world_rids.voxel_aux);
+    if (_voxel_world_rids.voxel_aux2.is_valid())
+        _rd->free_rid(_voxel_world_rids.voxel_aux2);
+    if (_voxel_world_rids.behavior_ops.is_valid())
+        _rd->free_rid(_voxel_world_rids.behavior_ops);
 
     _voxel_world_rids = VoxelWorldRIDs();
     _initialized = false;
@@ -241,6 +258,36 @@ void VoxelWorld::init()
     PackedByteArray properties_data = _voxel_properties.to_packed_byte_array();
     _voxel_world_rids.properties = _rd->storage_buffer_create(properties_data.size(), properties_data);
 
+    // Create the CA table buffers (element defs, reaction rules, behavior ops)
+    // and the per-voxel aux channel (temperature/life/flags, double-buffered).
+    {
+        PackedByteArray element_table;
+        element_table.resize(VoxelElementSet::MAX_ELEMENTS * sizeof(GpuElementDef));
+        _voxel_world_rids.element_table = _rd->storage_buffer_create(element_table.size(), element_table);
+
+        PackedByteArray reaction_table;
+        reaction_table.resize(VoxelElementSet::MAX_REACTION_RULES * sizeof(GpuReactionRule));
+        _voxel_world_rids.reaction_rules = _rd->storage_buffer_create(reaction_table.size(), reaction_table);
+
+        PackedByteArray behavior_table;
+        behavior_table.resize(VoxelElementSet::MAX_BEHAVIOR_OPS * sizeof(GpuBehaviorOp));
+        _voxel_world_rids.behavior_ops = _rd->storage_buffer_create(behavior_table.size(), behavior_table);
+
+        // aux starts at ambient temperature everywhere
+        PackedByteArray aux_data;
+        aux_data.resize(voxel_count * sizeof(uint32_t));
+        uint32_t *aux_ptr = reinterpret_cast<uint32_t *>(aux_data.ptrw());
+        const uint32_t ambient = VoxelElementSet::quantize_temp(293.0f);
+        for (int i = 0; i < voxel_count; i++)
+            aux_ptr[i] = ambient;
+        _voxel_world_rids.voxel_aux = _rd->storage_buffer_create(aux_data.size(), aux_data);
+        _voxel_world_rids.voxel_aux2 = _rd->storage_buffer_create(aux_data.size(), aux_data);
+    }
+
+    if (_element_set.is_null())
+        set_element_set(VoxelElementSet::create_default());
+    upload_elements();
+
     if (generator.is_null())
     {
         UtilityFunctions::printerr(
@@ -251,7 +298,7 @@ void VoxelWorld::init()
     generator->generate(_rd, _voxel_world_rids, _voxel_properties);
 
     // Create the update pass.
-    _update_pass = new VoxelWorldUpdatePass("res://addons/voxel_playground/src/shaders/automata/liquid.glsl", _rd, _voxel_world_rids, size);
+    _update_pass = new VoxelWorldUpdatePass(_rd, _voxel_world_rids, size);
 
     // Run cleanup once to compute brick occupancy after generation
     _update_pass->run_cleanup();
@@ -285,7 +332,7 @@ void VoxelWorld::init()
 
 void VoxelWorld::update(float delta)
 {
-    if(!_initialized) 
+    if(!_initialized)
         return;
     _voxel_properties.frame++;
     PackedByteArray properties_data = _voxel_properties.to_packed_byte_array();
@@ -293,7 +340,18 @@ void VoxelWorld::update(float delta)
 
     if (simulation_enabled)
     {
-        _update_pass->update(delta);
+        // movement tick: read prev, write cur; cleanup erases the moved-away
+        // dynamics from prev so it can be the write target of the next flip
+        _update_pass->run_movement();
+        _update_pass->run_cleanup();
+
+        // reaction tick runs on its own buffer flip so every thread sees a
+        // stable post-movement snapshot and writes only its own cell
+        _voxel_properties.frame++;
+        properties_data = _voxel_properties.to_packed_byte_array();
+        _rd->buffer_update(_voxel_world_rids.properties, 0, properties_data.size(), properties_data);
+        _update_pass->run_reactions();
+        _update_pass->run_cleanup();
     }
 
     // Entity movement runs after automata but before cellpond
@@ -311,6 +369,32 @@ void VoxelWorld::update(float delta)
     {
         _voxel_world_collider->update(get_voxel_world_position(player_node->get_global_position()));
     }
+}
+
+void VoxelWorld::set_element_set(const Ref<VoxelElementSet> &p_set)
+{
+    Callable upload = Callable(this, "upload_elements");
+    if (_element_set.is_valid() && _element_set->is_connected("changed", upload))
+        _element_set->disconnect("changed", upload);
+    _element_set = p_set;
+    if (_element_set.is_valid() && !_element_set->is_connected("changed", upload))
+        _element_set->connect("changed", upload);
+    if (_initialized)
+        upload_elements();
+}
+
+void VoxelWorld::upload_elements()
+{
+    if (_rd == nullptr || _element_set.is_null() || !_voxel_world_rids.element_table.is_valid())
+        return;
+
+    PackedByteArray element_table, reaction_table, behavior_table;
+    if (!_element_set->build_tables(element_table, reaction_table, behavior_table))
+        return;
+
+    _rd->buffer_update(_voxel_world_rids.element_table, 0, element_table.size(), element_table);
+    _rd->buffer_update(_voxel_world_rids.reaction_rules, 0, reaction_table.size(), reaction_table);
+    _rd->buffer_update(_voxel_world_rids.behavior_ops, 0, behavior_table.size(), behavior_table);
 }
 
 void VoxelWorld::upload_cellpond_rules()

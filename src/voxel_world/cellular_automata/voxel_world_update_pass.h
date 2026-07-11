@@ -12,19 +12,27 @@
 
 using namespace godot;
 
+// Dispatches the data-driven CA pipeline (see docs/runtime_ca_design.md):
+//   run_movement():  generic movement pass (two checkerboard sub-passes) +
+//                    custom kernels (vine growth)
+//   run_cleanup():   erase dynamics from the read buffer, rebuild occupancy
+//   run_reactions(): contact reactions, heat, life decay, phase changes
+//                    (must run on its own buffer flip; the caller increments
+//                    the frame counter between movement and reactions)
 class VoxelWorldUpdatePass
 {
 
   public:
-    VoxelWorldUpdatePass(String shader_path, RenderingDevice *rd, VoxelWorldRIDs& voxel_world_rids, const Vector3i size);
-    ~VoxelWorldUpdatePass() {};
+    VoxelWorldUpdatePass(RenderingDevice *rd, VoxelWorldRIDs &voxel_world_rids, const Vector3i size);
+    ~VoxelWorldUpdatePass();
 
-    void update(float delta);
+    void run_movement();
+    void run_reactions();
     void run_cleanup();
 
   private:
-    ComputeShader *automata_cs_1 = nullptr;
-    ComputeShader *automata_cs_2 = nullptr;
+    ComputeShader *movement_shader = nullptr;
+    ComputeShader *reaction_shader = nullptr;
     ComputeShader *vine_growth_shader = nullptr;
     ComputeShader *cleanup_shader = nullptr;
     Vector3i _size;
