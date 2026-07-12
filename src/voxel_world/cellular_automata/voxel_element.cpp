@@ -189,6 +189,11 @@ void VoxelElement::_bind_methods()
                                   String::num_int64(PROPERTY_HINT_RESOURCE_TYPE) + ":VoxelBehaviorOp"),
                  "set_behavior", "get_behavior");
 
+    ClassDB::bind_method(D_METHOD("set_custom_glsl", "glsl"), &VoxelElement::set_custom_glsl);
+    ClassDB::bind_method(D_METHOD("get_custom_glsl"), &VoxelElement::get_custom_glsl);
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "custom_glsl", PROPERTY_HINT_MULTILINE_TEXT), "set_custom_glsl",
+                 "get_custom_glsl");
+
     ClassDB::bind_method(D_METHOD("add_reaction", "partner", "self_becomes", "partner_becomes", "chance"),
                          &VoxelElement::add_reaction);
     ClassDB::bind_method(

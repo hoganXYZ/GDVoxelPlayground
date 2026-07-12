@@ -9,19 +9,34 @@ cases.
 
 ## Implementation status (2026-07-11)
 
-Phases 1–3 are implemented and verified end-to-end (`project/tests/test_ca.tscn`
-runs 11 automated checks: liquid/powder movement, quench reaction → steam, a
-runtime-registered acid that dissolves rock, a runtime cloner built from
-behavior ops, and ice melting through heat diffusion + phase change).
+All five phases are implemented and verified end-to-end
+(`project/tests/test_ca.tscn` runs 14 automated checks: liquid/powder
+movement, quench reaction → steam, a runtime-registered acid that dissolves
+rock, a runtime cloner built from behavior ops, ice melting through heat
+diffusion + phase change, vine growth through the runtime-compiled Tier-4
+custom pass, a gunpowder chain detonation, and the in-game element editor
+registering a new element).
 
 | Piece | Where |
 |---|---|
 | GPU tables + aux channel | `shaders/voxel_elements.glsl.inc`, set 1 bindings 8–12 |
 | Generic movement pass (Tier 1 + Tier 3 ops) | `shaders/automata/movement.glsl`, two checkerboard sub-passes |
 | Reaction/thermal/life/phase pass (Tier 2) | `shaders/automata/reaction.glsl`, runs on its own buffer flip |
+| Tier 4 custom-pass codegen | `VoxelElementSet::build_custom_source()` → `ComputeShader(rd, source, virtual_path)` (runtime GLSL→SPIR-V); vine growth is the reference snippet |
 | Resources & table builder | `src/voxel_world/cellular_automata/voxel_element*.{h,cpp}` |
 | Pipeline dispatch | `voxel_world_update_pass.cpp`; `VoxelWorld::update` flips the frame twice per tick |
-| Defaults (water/lava/sand/vine + steam/ice/fire/glass) | `VoxelElementSet::create_default()` |
+| Defaults (20 elements: builtins + steam/ice/fire/glass/oil/wood/smoke/ash/snow/gunpowder/goo/void) | `VoxelElementSet::create_default()` |
+| In-game UI | `demo/auxiliary/inventory/inventory.gd` (palette generated from the element set, number keys / click) and `element_editor.gd` (press **F**: create/edit elements, reactions, ops, custom GLSL, live-applied) |
+| Renderer emission | element-table driven (`getElementEmission`), any element can glow |
+
+Custom GLSL contract (Tier 4): the element's `custom_glsl` must define
+`void ca_tick(ivec3 pos, uint voxel_index, Voxel voxel, uint aux)`; the token
+`ca_tick` is uniquified per element and `CA_SELF` expands to the element's id.
+Snippets run once per matching voxel after the movement pass on the same flip
+(read previous buffer, CAS-claim/write the current one). Helper function names
+must be unique across all elements' snippets — prefix them with the element
+name. Compile errors are printed to the console and the pass is disabled until
+the snippet is fixed.
 
 Runtime usage from GDScript:
 
@@ -38,14 +53,12 @@ world.edit_world(origin, dir, radius, range,      # paint it
 ```
 
 Mutating an existing element's properties does not emit `changed`; call
-`world.upload_elements()` afterwards. Tier 4 (per-element custom GLSL codegen)
-and the in-game editor UI remain future work; `vine_growth.glsl` still runs as
-the hand-written CUSTOM-class example.
+`world.upload_elements()` afterwards (the in-game editor's Apply and
+`add_element()` both trigger it automatically).
 
 Known quirks: `voxelTraceWorld` misses on perfectly axis-aligned rays
-(pre-existing; nudge the direction), CHANGE/DELETE behavior ops on diagonal
-offsets can very rarely duplicate a concurrently-moving target, and renderer
-emission still keys off the lava type byte rather than the element table.
+(pre-existing; nudge the direction), and CHANGE/DELETE behavior ops on
+diagonal offsets can very rarely duplicate a concurrently-moving target.
 
 This document has three parts: (1) how Sandboxels actually manages its CA,
 (2) what does and doesn't survive the move to a parallel GPU voxel grid,

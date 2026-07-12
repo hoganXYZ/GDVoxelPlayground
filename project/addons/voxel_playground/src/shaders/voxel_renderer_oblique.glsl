@@ -3,6 +3,7 @@
 
 #include "utility.glsl.inc"
 #include "voxel_world.glsl.inc"
+#include "voxel_elements.glsl.inc"
 
 // Set to 1 to draw on-screen debug values and tint miss pixels by cause
 // (red = ray never reached the world AABB, blue heat = traversed but empty).
@@ -36,13 +37,6 @@
 // moving the camera node.
 #define OBLIQUE_PULLBACK 0.0
 
-// ----------------------------------- STRUCTS -----------------------------------
-
-struct Light {
-    vec4 position;
-    vec4 color;
-};
-
 // ----------------------------------- GENERAL STORAGE -----------------------------------
 
 layout(set = 1, binding = 0, rgba8) restrict uniform writeonly image2D outputImage;
@@ -75,15 +69,15 @@ vec3 blinnPhongShading(vec3 baseColor, vec3 normal, vec3 lightDir, vec3 lightCol
     vec3 specular = vec3(0.0);
     vec3 H = normalize(lightDir + viewDir);
     float NdotH = max(dot(normal, H), 0.0);
-    specular = pow(NdotH, 10.0) * lightColor;
+    specular = pow(NdotH, 10.0) * lightColor * 0.0;
 
     vec3 ambient = baseColor;
 
     vec3 result = 0.25 * shadow * specular;
     result += (shadow * 0.5 + 0.5) * diffuse;
-    result += 0.2 * ambient;
+    result += 0.1 * ambient;
     // Overriding and just returning base color
-    result = baseColor;
+    // result = baseColor;
     return result;
 }
 
@@ -174,7 +168,7 @@ void main() {
 
     normal = normalize(normal);
     vec3 voxel_pos = vec3(grid_position) * voxelWorldProperties.scale;
-    float emission = getVoxelEmission(voxel);
+    float emission = getElementEmission(voxel);
     color = getVoxelColor(voxel, grid_position) * (1 + emission);
     if(isVoxelLiquid(voxel))
     {
@@ -187,11 +181,13 @@ void main() {
 
     // direct illumination
     if(emission < 1) {
+        vec3 albedo = color;
         float shadow = computeShadow(hitPos, normal, voxelWorldProperties.sun_direction.xyz);
         float ao = computeAmbientOcclusion(hitPos, grid_position, normal) * 0.7 + 0.3;
         // override ao for now
         //ao = 1.0;
         color = ao * blinnPhongShading(color, normal, normalize(voxelWorldProperties.sun_direction.xyz), voxelWorldProperties.sun_color.rgb, voxel_view_dir, shadow);
+        color += computePointLights(albedo, hitPos, normal, voxel_view_dir);
     }
 
     // Brush preview overlay

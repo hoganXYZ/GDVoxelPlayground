@@ -4,13 +4,6 @@
 #include "utility.glsl.inc"
 #include "voxel_world.glsl.inc"
 
-// ----------------------------------- STRUCTS -----------------------------------
-
-struct Light {
-    vec4 position;
-    vec4 color;
-};
-
 // ----------------------------------- GENERAL STORAGE -----------------------------------
 
 layout(set = 1, binding = 0, rgba8) restrict uniform writeonly image2D outputImage;
@@ -106,9 +99,11 @@ void main() {
 
     // direct illumination
     if(emission < 1) {
+        vec3 albedo = color;
         float shadow = computeShadow(hitPos, normal, voxelWorldProperties.sun_direction.xyz);
         float ao = computeAmbientOcclusion(hitPos, grid_position, normal) * 0.7 + 0.3;
         color = ao * blinnPhongShading(color, normal, normalize(voxelWorldProperties.sun_direction.xyz), voxelWorldProperties.sun_color.rgb, voxel_view_dir, shadow);
+        color += computePointLights(albedo, hitPos, normal, voxel_view_dir);
     }
 
     // Brush preview overlay

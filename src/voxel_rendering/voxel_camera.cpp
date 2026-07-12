@@ -133,8 +133,9 @@ void VoxelCamera::init()
     // setup compute shader
     cs = new ComputeShader("res://addons/voxel_playground/src/shaders/voxel_renderer_oblique.glsl", _rd, {"#define TESTe"});
 
-    //--------- Voxel BUFFERS ---------    
-    voxel_world->get_voxel_world_rids().add_voxel_buffers(cs);    
+    //--------- Voxel BUFFERS ---------
+    voxel_world->get_voxel_world_rids().add_voxel_buffers(cs);
+    voxel_world->get_voxel_world_rids().add_ca_buffers(cs); // element table drives emission
 
     //--------- GENERAL BUFFERS ---------
     { // input general buffer

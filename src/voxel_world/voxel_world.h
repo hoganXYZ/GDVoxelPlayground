@@ -6,6 +6,7 @@
 #include <godot_cpp/variant/vector3i.hpp>
 #include <godot_cpp/classes/rendering_device.hpp>
 #include <godot_cpp/classes/directional_light3d.hpp>
+#include <godot_cpp/classes/omni_light3d.hpp>
 
 #include "voxel_world/voxel_properties.h"
 #include "voxel_world/cellular_automata/voxel_world_update_pass.h"
@@ -13,6 +14,7 @@
 #include "voxel_world/cellular_automata/cellpond_update_pass.h"
 #include "voxel_world/cellular_automata/cellpond_rule_set.h"
 #include "voxel_world/voxel_edit/voxel_edit_pass.h"
+#include "voxel_world/voxel_edit/voxel_projector_pass.h"
 #include "voxel_world/colliders/voxel_world_collider.h"
 #include "voxel_world/entity/entity_manager.h"
 #include "voxel_world/generator/voxel_world_generator.h"
@@ -51,6 +53,7 @@ private:
     CellPondUpdatePass* _cellpond_pass = nullptr;
     VoxelEditPass* _edit_pass = nullptr;
     VoxelEditPass* _smooth_edit_pass = nullptr;
+    VoxelProjectorPass* _projector_pass = nullptr;
     VoxelWorldCollider* _voxel_world_collider = nullptr;
     EntityManager* _entity_manager = nullptr;
 
@@ -61,6 +64,9 @@ private:
     void init();
     void cleanup();
     void update(float delta);
+    // Gathers all OmniLight3D descendants of this node and uploads them as
+    // point lights for the voxel renderer (position/range/color/energy).
+    void update_point_lights();
 
     Vector3i get_voxel_world_position(const Vector3 &position) const {
         return Vector3i(std::floor(position.x / scale), std::floor(position.y / scale), std::floor(position.z / scale));
@@ -106,6 +112,19 @@ public:
     void edit_world(const Vector3 &camera_origin, const Vector3 &camera_direction, const float radius, const float range, const int value);
     void edit_world_smooth(const Vector3 &camera_origin, const Vector3 &camera_direction, const float radius, const float range);
     Vector3 raycast_world(const Vector3 &camera_origin, const Vector3 &camera_direction, const float range);
+    // Stamp a texture into the world through a projector frustum. `texture` is an
+    // RD texture RID (e.g. RenderingServer.texture_get_rd_texture of a viewport
+    // texture); `value` uses the same element encoding as edit_world.
+    void project_texture(const RID &texture, const Vector2i &texture_size, const Projection &inv_view_projection,
+                         const Vector3 &origin, const int value, const Color &tint, const float alpha_threshold,
+                         const float max_range, const bool place_on_surface);
+    // Parallel-ray variant for ortho/oblique cameras (screen-space projection from
+    // the oblique VoxelCamera): ray origin = origin + ndc.x * right_extent +
+    // ndc.y * up_extent, every ray travels along `direction`.
+    void project_texture_parallel(const RID &texture, const Vector2i &texture_size, const Vector3 &origin,
+                                  const Vector3 &right_extent, const Vector3 &up_extent, const Vector3 &direction,
+                                  const int value, const Color &tint, const float alpha_threshold,
+                                  const float max_range, const bool place_on_surface);
     void set_brush_preview(const Vector3 &position, const float radius);
     void clear_brush_preview();
 

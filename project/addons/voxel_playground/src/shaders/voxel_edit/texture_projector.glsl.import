@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://eh3qhjg0cb6d"
+path="res://.godot/imported/texture_projector.glsl-177006548fe7a6b2ebc3e7eba7d7f629.res"
+
+[deps]
+
+source_file="res://addons/voxel_playground/src/shaders/voxel_edit/texture_projector.glsl"
+dest_files=["res://.godot/imported/texture_projector.glsl-177006548fe7a6b2ebc3e7eba7d7f629.res"]
+
+[params]
+

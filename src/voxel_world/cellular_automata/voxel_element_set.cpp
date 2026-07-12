@@ -316,6 +316,53 @@ bool VoxelElementSet::build_tables(PackedByteArray &r_element_table, PackedByteA
     return true;
 }
 
+// -------------------------------------- custom pass codegen (Tier 4) --------------------------------------
+
+String VoxelElementSet::build_custom_source() const
+{
+    const int count = MIN((int)elements.size(), MAX_ELEMENTS);
+    String snippets;
+    String dispatch;
+    bool any = false;
+
+    for (int i = 0; i < count; i++)
+    {
+        Ref<VoxelElement> e = elements[i];
+        if (e.is_null())
+            continue;
+        String code = e->get_custom_glsl().strip_edges();
+        if (code.is_empty())
+            continue;
+        any = true;
+        const String id_str = String::num_int64(i);
+        // uniquify the entry point and let snippets refer to their own id
+        code = code.replace("CA_SELF", id_str + String("u"));
+        code = code.replace("ca_tick", "ca_tick_" + id_str);
+        snippets += String("\n// ---- element '") + e->get_element_name() + String("' (id ") + id_str +
+                    String(") ----\n") + code + String("\n");
+        dispatch += String("    if (ca_type == ") + id_str + String("u) { ca_tick_") + id_str +
+                    String("(ca_pos, ca_index, ca_voxel, ca_aux); return; }\n");
+    }
+    if (!any)
+        return String();
+
+    return String("#version 460\n"
+                  "#include \"../utility.glsl.inc\"\n"
+                  "#include \"../voxel_world.glsl.inc\"\n"
+                  "#include \"../voxel_elements.glsl.inc\"\n") +
+           snippets +
+           String("\nlayout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;\n"
+                  "void main() {\n"
+                  "    ivec3 ca_pos = ivec3(gl_GlobalInvocationID.xyz);\n"
+                  "    if (!isValidPos(ca_pos)) return;\n"
+                  "    uint ca_index = posToIndex(ca_pos);\n"
+                  "    Voxel ca_voxel = getPreviousVoxel(ca_index);\n"
+                  "    if (isVoxelAir(ca_voxel)) return;\n"
+                  "    uint ca_type = getVoxelType(ca_voxel);\n"
+                  "    uint ca_aux = getPreviousAux(ca_index);\n") +
+           dispatch + String("}\n");
+}
+
 // -------------------------------------- defaults --------------------------------------
 
 static Ref<VoxelElement> make_element(const String &name, int movement_class, float density, const Color &color,
@@ -363,6 +410,68 @@ Ref<VoxelElementSet> VoxelElementSet::create_default()
 
     Ref<VoxelElement> vine =
         make_element("vine", VoxelElement::MOVEMENT_CUSTOM, 400.0f, Color(0.15f, 0.55f, 0.18f), 0.15f, 293.0f);
+    // ported from the former vine_growth.glsl: surface-clinging growth with an
+    // energy budget in the voxel's low byte (Tier 4 reference example)
+    vine->set_custom_glsl(String(R"GLSL(
+const ivec3 vine_dirs[6] = ivec3[](
+    ivec3(0, 1, 0), ivec3(-1, 0, 0), ivec3(1, 0, 0),
+    ivec3(0, 0, 1), ivec3(0, 0, -1), ivec3(0, -1, 0)
+);
+
+bool vine_hasSolidNeighbor(ivec3 p) {
+    for (int i = 0; i < 6; i++) {
+        ivec3 n = p + vine_dirs[i];
+        if (isValidPos(n) && isVoxelSolid(getPreviousVoxel(posToIndex(n)))) return true;
+    }
+    return false;
+}
+
+int vine_countVineNeighbors(ivec3 p) {
+    int c = 0;
+    for (int i = 0; i < 6; i++) {
+        ivec3 n = p + vine_dirs[i];
+        if (isValidPos(n) && getVoxelType(getPreviousVoxel(posToIndex(n))) == CA_SELF) c++;
+    }
+    return c;
+}
+
+// 40% up, 10% each side, 20% down
+uint vine_pickGrowthDirection(uvec4 rv) {
+    uint r = rv.y % 100u;
+    if (r < 40u) return 0u;
+    if (r < 50u) return 1u;
+    if (r < 60u) return 2u;
+    if (r < 70u) return 3u;
+    if (r < 80u) return 4u;
+    return 5u;
+}
+
+void ca_tick(ivec3 pos, uint voxel_index, Voxel voxel, uint aux) {
+    uint energy = voxel.data & 0xFFu;
+    if (energy == 0u) return;
+
+    uvec4 random_value = hash(uvec4(uvec3(pos), voxelWorldProperties.frame));
+    if ((random_value.x % 16u) != 0u) return; // ~6% growth chance per tick
+
+    ivec3 dir = vine_dirs[vine_pickGrowthDirection(random_value)];
+    ivec3 new_pos = pos + dir;
+    if (!isValidPos(new_pos)) return;
+    uint new_index = posToIndex(new_pos);
+    if (!isVoxelAir(getPreviousVoxel(new_index))) return;
+    if (!vine_hasSolidNeighbor(new_pos)) return;   // cling to surfaces
+    if (vine_countVineNeighbors(new_pos) > 1) return; // no thick blobs
+
+    Voxel child = createElementVoxel(CA_SELF, new_pos);
+    child.data |= (energy - 1u) & 0xFFu;
+    if (casVoxelCurrent(new_index, 0u, child.data) == 0u) {
+        setAux(new_index, defaultAuxFor(CA_SELF));
+        // we spawned the child: this tip becomes a passive stem
+        Voxel stem = voxel;
+        stem.data &= ~0xFFu;
+        setVoxel(voxel_index, stem);
+    }
+}
+)GLSL"));
 
     Ref<VoxelElement> entity =
         make_element("entity", VoxelElement::MOVEMENT_STATIC, 1000.0f, Color(0.8f, 0.2f, 0.2f), 0.2f, 310.0f);
@@ -384,10 +493,62 @@ Ref<VoxelElementSet> VoxelElementSet::create_default()
         make_element("fire", VoxelElement::MOVEMENT_GAS, 0.3f, Color(1.0f, 0.45f, 0.08f), 0.9f, 1300.0f);
     fire->set_emission(2.0f);
     fire->set_life(40);
-    fire->set_life_into(""); // burns out to air
+    fire->set_life_into("smoke");
 
     Ref<VoxelElement> glass =
         make_element("glass", VoxelElement::MOVEMENT_STATIC, 2500.0f, Color(0.7f, 0.85f, 0.9f), 0.15f, 293.0f);
+
+    Ref<VoxelElement> oil =
+        make_element("oil", VoxelElement::MOVEMENT_LIQUID, 880.0f, Color(0.16f, 0.12f, 0.07f), 0.2f, 293.0f);
+    oil->set_flow(0.85f); // floats on water (lower density), burns readily
+    Ref<VoxelReaction> oil_ignite = oil->add_reaction("fire", "fire", "", 0.25f);
+    oil_ignite->set_oneway(true);
+    Ref<VoxelReaction> oil_lava = oil->add_reaction("lava", "fire", "", 0.15f);
+    oil_lava->set_oneway(true);
+
+    Ref<VoxelElement> wood =
+        make_element("wood", VoxelElement::MOVEMENT_STATIC, 600.0f, Color(0.42f, 0.28f, 0.12f), 0.12f, 293.0f);
+    Ref<VoxelReaction> wood_ignite = wood->add_reaction("fire", "fire", "", 0.05f);
+    wood_ignite->set_oneway(true);
+    Ref<VoxelReaction> wood_lava = wood->add_reaction("lava", "fire", "", 0.02f);
+    wood_lava->set_oneway(true);
+
+    Ref<VoxelElement> smoke =
+        make_element("smoke", VoxelElement::MOVEMENT_GAS, 0.4f, Color(0.15f, 0.15f, 0.16f), 0.05f, 400.0f);
+    smoke->set_life(150);
+    smoke->set_life_into(""); // dissipates
+
+    Ref<VoxelElement> ash =
+        make_element("ash", VoxelElement::MOVEMENT_POWDER, 700.0f, Color(0.35f, 0.33f, 0.30f), 0.1f, 293.0f);
+
+    Ref<VoxelElement> snow =
+        make_element("snow", VoxelElement::MOVEMENT_POWDER, 150.0f, Color(0.92f, 0.94f, 0.98f), 0.3f, 265.0f);
+    snow->set_temp_high(274.0f);
+    snow->set_state_high("water");
+
+    Ref<VoxelElement> gunpowder =
+        make_element("gunpowder", VoxelElement::MOVEMENT_POWDER, 1700.0f, Color(0.2f, 0.2f, 0.22f), 0.3f, 293.0f);
+    Ref<VoxelReaction> boom = gunpowder->add_reaction("fire", "fire", "", 1.0f);
+    boom->set_oneway(true);
+    boom->set_temp_delta(800.0f); // chain detonation
+    Ref<VoxelReaction> boom_lava = gunpowder->add_reaction("lava", "fire", "", 1.0f);
+    boom_lava->set_oneway(true);
+    boom_lava->set_temp_delta(800.0f);
+
+    // grey goo: converts face neighbors into itself, then expires (Tier 3 demo)
+    Ref<VoxelElement> goo =
+        make_element("goo", VoxelElement::MOVEMENT_STATIC, 1200.0f, Color(0.55f, 0.5f, 0.6f), 0.2f, 293.0f);
+    goo->set_life(200);
+    goo->set_life_into("");
+    goo->add_behavior_op(VoxelBehaviorOp::OP_CHANGE, Vector3i(1, 0, 0), "", "goo", 0.02f,
+                         VoxelBehaviorOp::SYMMETRY_ALL);
+
+    // void: eats every non-void neighbor (Tier 3 demo)
+    Ref<VoxelElement> void_eater =
+        make_element("void", VoxelElement::MOVEMENT_STATIC, 5000.0f, Color(0.05f, 0.02f, 0.1f), 0.0f, 293.0f);
+    void_eater->set_emission(0.3f);
+    void_eater->add_behavior_op(VoxelBehaviorOp::OP_DELETE, Vector3i(1, 0, 0), "", "", 0.5f,
+                                VoxelBehaviorOp::SYMMETRY_ALL);
 
     // freeze_lava.glsl parity, plus steam: lava touching water becomes rock,
     // the water flashes to steam
@@ -412,6 +573,14 @@ Ref<VoxelElementSet> VoxelElementSet::create_default()
     set->add_element(ice);
     set->add_element(fire);
     set->add_element(glass);
+    set->add_element(oil);
+    set->add_element(wood);
+    set->add_element(smoke);
+    set->add_element(ash);
+    set->add_element(snow);
+    set->add_element(gunpowder);
+    set->add_element(goo);
+    set->add_element(void_eater);
     return set;
 }
 

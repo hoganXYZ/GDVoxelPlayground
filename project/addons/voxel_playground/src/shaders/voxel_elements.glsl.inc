@@ -143,6 +143,11 @@ Voxel createElementVoxel(uint type, ivec3 pos) {
     return createVoxel(type, randomizedColor(base, pos));
 }
 
+// table-driven replacement for getVoxelEmission (which hardcodes lava)
+float getElementEmission(Voxel voxel) {
+    return elementDefs[getVoxelType(voxel)].emission;
+}
+
 // -------------------------------------- PAIR-SYMMETRIC RNG --------------------------------------
 // Both cells of an interacting pair compute the same roll, so they agree on
 // whether a reaction fired without any communication.

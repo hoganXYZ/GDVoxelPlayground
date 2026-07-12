@@ -9,6 +9,7 @@ void godot::VoxelWorldRIDs::add_voxel_buffers(ComputeShader *shader)
     shader->add_existing_buffer(voxel_bricks, RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 1, 0);
     shader->add_existing_buffer(voxel_data, RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 2, 0);
     shader->add_existing_buffer(voxel_data2, RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 3, 0);
+    shader->add_existing_buffer(point_lights, RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 4, 0);
 }
 
 void godot::VoxelWorldRIDs::add_ca_buffers(ComputeShader *shader)

@@ -35,6 +35,29 @@ void VoxelWorld::edit_world_smooth(const Vector3 &camera_origin, const Vector3 &
     _smooth_edit_pass->edit_using_raycast(camera_origin, camera_direction, radius, range, 0);
 }
 
+void VoxelWorld::project_texture(const RID &texture, const Vector2i &texture_size,
+                                 const Projection &inv_view_projection, const Vector3 &origin, const int value,
+                                 const Color &tint, const float alpha_threshold, const float max_range,
+                                 const bool place_on_surface)
+{
+    if (_projector_pass == nullptr)
+        return;
+    _projector_pass->project(texture, texture_size, inv_view_projection, origin, value, tint, alpha_threshold,
+                             max_range, place_on_surface);
+}
+
+void VoxelWorld::project_texture_parallel(const RID &texture, const Vector2i &texture_size, const Vector3 &origin,
+                                          const Vector3 &right_extent, const Vector3 &up_extent,
+                                          const Vector3 &direction, const int value, const Color &tint,
+                                          const float alpha_threshold, const float max_range,
+                                          const bool place_on_surface)
+{
+    if (_projector_pass == nullptr)
+        return;
+    _projector_pass->project_parallel(texture, texture_size, origin, right_extent, up_extent, direction, value, tint,
+                                      alpha_threshold, max_range, place_on_surface);
+}
+
 Vector3 VoxelWorld::raycast_world(const Vector3 &camera_origin, const Vector3 &camera_direction, const float range)
 {
     if (_edit_pass == nullptr)
@@ -140,6 +163,15 @@ void VoxelWorld::_bind_methods()
                          &VoxelWorld::edit_world_smooth);
     ClassDB::bind_method(D_METHOD("raycast_world", "camera_origin", "camera_direction", "range"),
                          &VoxelWorld::raycast_world);
+    ClassDB::bind_method(D_METHOD("project_texture", "texture", "texture_size", "inv_view_projection", "origin",
+                                  "value", "tint", "alpha_threshold", "max_range", "place_on_surface"),
+                         &VoxelWorld::project_texture, DEFVAL(Color(1, 1, 1)), DEFVAL(0.5f), DEFVAL(1000.0f),
+                         DEFVAL(false));
+    ClassDB::bind_method(D_METHOD("project_texture_parallel", "texture", "texture_size", "origin", "right_extent",
+                                  "up_extent", "direction", "value", "tint", "alpha_threshold", "max_range",
+                                  "place_on_surface"),
+                         &VoxelWorld::project_texture_parallel, DEFVAL(Color(1, 1, 1)), DEFVAL(0.5f),
+                         DEFVAL(1000.0f), DEFVAL(false));
     ClassDB::bind_method(D_METHOD("set_brush_preview", "position", "radius"),
                          &VoxelWorld::set_brush_preview);
     ClassDB::bind_method(D_METHOD("clear_brush_preview"),
@@ -191,6 +223,7 @@ void VoxelWorld::cleanup()
     delete _cellpond_pass;   _cellpond_pass = nullptr;
     delete _edit_pass;       _edit_pass = nullptr;
     delete _smooth_edit_pass; _smooth_edit_pass = nullptr;
+    delete _projector_pass;  _projector_pass = nullptr;
 
     if (_voxel_world_rids.voxel_bricks.is_valid())
         _rd->free_rid(_voxel_world_rids.voxel_bricks);
@@ -200,6 +233,8 @@ void VoxelWorld::cleanup()
         _rd->free_rid(_voxel_world_rids.voxel_data2);
     if (_voxel_world_rids.properties.is_valid())
         _rd->free_rid(_voxel_world_rids.properties);
+    if (_voxel_world_rids.point_lights.is_valid())
+        _rd->free_rid(_voxel_world_rids.point_lights);
     if (_voxel_world_rids.element_table.is_valid())
         _rd->free_rid(_voxel_world_rids.element_table);
     if (_voxel_world_rids.reaction_rules.is_valid())
@@ -258,6 +293,14 @@ void VoxelWorld::init()
     PackedByteArray properties_data = _voxel_properties.to_packed_byte_array();
     _voxel_world_rids.properties = _rd->storage_buffer_create(properties_data.size(), properties_data);
 
+    // Create the point lights buffer (16-byte header with the light count,
+    // then a fixed-capacity array; refreshed every frame from OmniLight3D children).
+    {
+        PackedByteArray light_data;
+        light_data.resize(16 + VoxelWorldRIDs::MAX_POINT_LIGHTS * sizeof(GpuPointLight));
+        _voxel_world_rids.point_lights = _rd->storage_buffer_create(light_data.size(), light_data);
+    }
+
     // Create the CA table buffers (element defs, reaction rules, behavior ops)
     // and the per-voxel aux channel (temperature/life/flags, double-buffered).
     {
@@ -297,8 +340,10 @@ void VoxelWorld::init()
     generator->initialize_brick_grid(_rd, _voxel_world_rids, _voxel_properties);
     generator->generate(_rd, _voxel_world_rids, _voxel_properties);
 
-    // Create the update pass.
+    // Create the update pass (and its Tier-4 custom pass, compiled from the
+    // element set's custom_glsl snippets).
     _update_pass = new VoxelWorldUpdatePass(_rd, _voxel_world_rids, size);
+    _update_pass->set_custom_source(_element_set->build_custom_source());
 
     // Run cleanup once to compute brick occupancy after generation
     _update_pass->run_cleanup();
@@ -313,6 +358,7 @@ void VoxelWorld::init()
     // Create the edit passes.
     _edit_pass = new VoxelEditPass("res://addons/voxel_playground/src/shaders/voxel_edit/sphere_edit.glsl", _rd, _voxel_world_rids, size);
     _smooth_edit_pass = new VoxelEditPass("res://addons/voxel_playground/src/shaders/voxel_edit/smooth_edit.glsl", _rd, _voxel_world_rids, size);
+    _projector_pass = new VoxelProjectorPass(_rd, _voxel_world_rids);
 
     // if collider set, initialize it
     if (_voxel_world_collider != nullptr)
@@ -337,6 +383,8 @@ void VoxelWorld::update(float delta)
     _voxel_properties.frame++;
     PackedByteArray properties_data = _voxel_properties.to_packed_byte_array();
     _rd->buffer_update(_voxel_world_rids.properties, 0, properties_data.size(), properties_data);
+
+    update_point_lights();
 
     if (simulation_enabled)
     {
@@ -371,6 +419,37 @@ void VoxelWorld::update(float delta)
     }
 }
 
+void VoxelWorld::update_point_lights()
+{
+    if (!_initialized || _rd == nullptr || !_voxel_world_rids.point_lights.is_valid())
+        return;
+
+    TypedArray<Node> nodes = find_children("*", "OmniLight3D", true, false);
+    int candidate_count = MIN(static_cast<int>(nodes.size()), VoxelWorldRIDs::MAX_POINT_LIGHTS);
+
+    PackedByteArray data;
+    data.resize(16 + VoxelWorldRIDs::MAX_POINT_LIGHTS * sizeof(GpuPointLight));
+    GpuPointLight *lights = reinterpret_cast<GpuPointLight *>(data.ptrw() + 16);
+
+    int light_count = 0;
+    for (int i = 0; i < candidate_count; i++)
+    {
+        OmniLight3D *light = Object::cast_to<OmniLight3D>(nodes[i]);
+        if (light == nullptr || !light->is_visible_in_tree())
+            continue;
+        Vector3 pos = light->get_global_position();
+        Color color = light->get_color();
+        float energy = light->get_param(Light3D::PARAM_ENERGY);
+        lights[light_count].position = Vector4(pos.x, pos.y, pos.z, light->get_param(Light3D::PARAM_RANGE));
+        lights[light_count].color = Vector4(color.r * energy, color.g * energy, color.b * energy, 0.0f);
+        light_count++;
+    }
+    reinterpret_cast<int32_t *>(data.ptrw())[0] = light_count;
+
+    // header + only the lights actually written
+    _rd->buffer_update(_voxel_world_rids.point_lights, 0, 16 + light_count * sizeof(GpuPointLight), data);
+}
+
 void VoxelWorld::set_element_set(const Ref<VoxelElementSet> &p_set)
 {
     Callable upload = Callable(this, "upload_elements");
@@ -395,6 +474,10 @@ void VoxelWorld::upload_elements()
     _rd->buffer_update(_voxel_world_rids.element_table, 0, element_table.size(), element_table);
     _rd->buffer_update(_voxel_world_rids.reaction_rules, 0, reaction_table.size(), reaction_table);
     _rd->buffer_update(_voxel_world_rids.behavior_ops, 0, behavior_table.size(), behavior_table);
+
+    // rebuild the Tier-4 custom pass if any custom_glsl changed (no-op otherwise)
+    if (_update_pass != nullptr)
+        _update_pass->set_custom_source(_element_set->build_custom_source());
 }
 
 void VoxelWorld::upload_cellpond_rules()

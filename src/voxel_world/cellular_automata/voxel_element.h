@@ -121,6 +121,7 @@ private:
     String life_into;             // "" = air
     Array reactions;              // VoxelReaction resources
     Array behavior;               // VoxelBehaviorOp resources
+    String custom_glsl;           // Tier 4: GLSL compiled into the custom pass at runtime
 
 public:
     // must match MOVE_* in voxel_elements.glsl.inc
@@ -162,6 +163,14 @@ public:
     Array get_reactions() const { return reactions; }
     void set_behavior(const Array &v) { behavior = v; }
     Array get_behavior() const { return behavior; }
+    // Free-form GLSL appended to the generated custom pass. Must define
+    //   void ca_tick(ivec3 pos, uint voxel_index, Voxel voxel, uint aux)
+    // (the token ca_tick is uniquified per element at codegen time). Runs once
+    // per voxel of this element after the movement pass, on the same buffer
+    // flip: read the previous buffer, claim/write the current one. Helper
+    // functions must have names unique across all elements' snippets.
+    void set_custom_glsl(const String &v) { custom_glsl = v; }
+    String get_custom_glsl() const { return custom_glsl; }
 
     // convenience for building sets from script
     Ref<VoxelReaction> add_reaction(const String &p_partner, const String &p_self_becomes,

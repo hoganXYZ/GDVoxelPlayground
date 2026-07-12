@@ -23,6 +23,7 @@ extends Node3D
 
 const RAY_DISTANCE := 1000.0
 
+# legacy hotbar-slot mapping, kept for compatibility with set_selected_material
 const MATERIAL_TO_VOXEL_TYPE = {1: 1, 2: 4, 3: 2, 4: 3, 5: 5}
 const MATERIAL_DEFAULT_COLORS = {
 	1: Color(0.24, 0.25, 0.32),  # Rock (gray)
@@ -32,12 +33,21 @@ const MATERIAL_DEFAULT_COLORS = {
 	5: Color(0.2, 0.7, 0.15),    # Vine (green)
 }
 
+var selected_type: int = 1  # element id painted by left click
 var selected_color: Color = MATERIAL_DEFAULT_COLORS[1]
 var cooldown := 0.0
 
 
+## Preferred selection API: paint an element id from the world's element set
+## (used by the dynamic palette; colors default to the element's base color).
+func select_element(type_id: int, color: Color) -> void:
+	selected_type = type_id
+	selected_color = color
+
+
 func set_selected_material(value: int) -> void:
 	selected_material = value
+	selected_type = MATERIAL_TO_VOXEL_TYPE.get(value, 1)
 	if MATERIAL_DEFAULT_COLORS.has(value):
 		selected_color = MATERIAL_DEFAULT_COLORS[value]
 
@@ -50,11 +60,19 @@ func compress_color16(col: Color) -> int:
 
 
 func _get_edit_value() -> int:
-	if selected_material == 0:
+	if selected_type == 0:
 		return 0  # air
-	var voxel_type = MATERIAL_TO_VOXEL_TYPE.get(selected_material, 1)
 	# Encoding: (voxel_type << 24) | (1 << 16) | color16
-	return (voxel_type << 24) | (1 << 16) | compress_color16(selected_color)
+	return (selected_type << 24) | (1 << 16) | compress_color16(selected_color)
+
+
+## true while the cursor is over blocking UI (palette, element editor)
+func _ui_blocked() -> bool:
+	var mouse := get_viewport().get_mouse_position()
+	for node in get_tree().get_nodes_in_group("ca_ui_blocking"):
+		if node is Control and node.visible and node.get_global_rect().has_point(mouse):
+			return true
+	return false
 
 
 ## Ray under the mouse cursor in the oblique projection.
@@ -112,7 +130,7 @@ func _process(delta: float) -> void:
 			radius += 2
 
 	var ray := _mouse_ray()
-	if ray.is_empty():
+	if ray.is_empty() or _ui_blocked():
 		world.clear_brush_preview()
 		return
 

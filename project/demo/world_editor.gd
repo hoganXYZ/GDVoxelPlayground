@@ -35,6 +35,7 @@ var picker_info_label: Label
 var swatch_container: GridContainer
 var _last_swatch_count: int = -1
 
+
 func set_selected_material(value: int) -> void:
 	selected_material = value
 	if MATERIAL_DEFAULT_COLORS.has(value):

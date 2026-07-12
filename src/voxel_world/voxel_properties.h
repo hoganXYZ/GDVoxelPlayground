@@ -91,6 +91,13 @@ struct Voxel
     }
 };
 
+// should match the PointLight struct on the GPU (voxel_world.glsl.inc)
+struct GpuPointLight
+{
+    Vector4 position; // xyz = world position, w = range (world units)
+    Vector4 color;    // rgb = color premultiplied by energy
+};
+
 struct VoxelWorldProperties // match the struct on the gpu
 {
     static const int BRICK_SIZE = 8;
@@ -196,10 +203,13 @@ struct VoxelWorldProperties // match the struct on the gpu
 
 struct VoxelWorldRIDs
 {
+    static const int MAX_POINT_LIGHTS = 64; // must match voxel_world.glsl.inc
+
     RID properties;
     RID voxel_bricks;
     RID voxel_data;
     RID voxel_data2;
+    RID point_lights;
 
     // data-driven cellular automata tables + per-voxel aux channel (set 1, bindings 8-12)
     RID element_table;

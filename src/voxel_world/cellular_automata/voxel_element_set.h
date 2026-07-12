@@ -101,6 +101,10 @@ public:
     bool build_tables(PackedByteArray &r_element_table, PackedByteArray &r_reaction_table,
                       PackedByteArray &r_behavior_table) const;
 
+    // Tier 4: composes every element's custom_glsl into one compute shader
+    // (compiled at runtime by the update pass). Empty string = no custom pass.
+    String build_custom_source() const;
+
     static Ref<VoxelElementSet> create_default();
 };
 

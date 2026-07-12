@@ -15,14 +15,19 @@ layout(std430, set = 1, binding = 0) restrict buffer Params {
     uint value;
 } params;
 
-const ivec3 neighbors[6] = ivec3[](
-    ivec3( 1,  0,  0),
-    ivec3(-1,  0,  0),
-    ivec3( 0,  1,  0),
-    ivec3( 0, -1,  0),
-    ivec3( 0,  0,  1),
-    ivec3( 0,  0, -1)
-);
+// Smoothing = one step of mean-curvature flow on the solid/air interface:
+// blur the occupancy field with a spherical kernel, then re-threshold at 0.5.
+// The kernel radius scales with brush size so a large brush levels large
+// features, not just single-voxel bumps.
+const int MAX_KERNEL_RADIUS = 4;
+
+bool sampleOccupied(ivec3 p, out Voxel voxel) {
+    // Border-replicate so world edges read as a continuation of themselves
+    // instead of as air (which would erode the map boundary).
+    p = clamp(p, ivec3(0), voxelWorldProperties.grid_size.xyz - 1);
+    voxel = getVoxel(posToIndex(p));
+    return !isVoxelAir(voxel);
+}
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 void main() {
@@ -34,48 +39,80 @@ void main() {
     float d = length(vec3(world_pos) - center);
     if (d >= params.radius) return;
 
-    uint brick_index = getBrickIndex(world_pos);
-    uint voxel_index = voxelBricks[brick_index].voxel_data_pointer * BRICK_VOLUME + getVoxelIndexInBrick(world_pos);
+    uint voxel_index = posToIndex(world_pos);
     Voxel center_voxel = getVoxel(voxel_index);
     bool center_is_air = isVoxelAir(center_voxel);
+    if (isVoxelEntity(center_voxel)) return;
 
-    // Count solid vs air neighbors
-    int solid_count = 0;
-    int air_count = 0;
+    // --- Gate: only the interface shell may change ---
+    // Voxels whose full 3x3x3 neighborhood is uniform are deep inside solid or
+    // air. Skipping them protects the interior of thin walls/floors and lets
+    // the vast majority of threads exit before the wide kernel below.
+    int inner_solid = 0;
     vec3 color_sum = vec3(0.0);
-    uint dominant_type = VOXEL_TYPE_SOLID;
+    float color_weight = 0.0;
+    uint type_counts[8] = uint[](0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
 
-    for (int i = 0; i < 6; i++) {
-        ivec3 neighbor_pos = world_pos + neighbors[i];
-        if (!isValidPos(neighbor_pos)) {
-            air_count++;
-            continue;
-        }
+    for (int x = -1; x <= 1; x++)
+    for (int y = -1; y <= 1; y++)
+    for (int z = -1; z <= 1; z++) {
+        Voxel v;
+        if (!sampleOccupied(world_pos + ivec3(x, y, z), v)) continue;
+        inner_solid++;
 
-        uint neighbor_index = voxelBricks[getBrickIndex(neighbor_pos)].voxel_data_pointer * BRICK_VOLUME + getVoxelIndexInBrick(neighbor_pos);
-        Voxel neighbor_voxel = getVoxel(neighbor_index);
-
-        if (isVoxelAir(neighbor_voxel)) {
-            air_count++;
-        } else {
-            solid_count++;
-            color_sum += getVoxelColor(neighbor_voxel, neighbor_pos);
-            dominant_type = (neighbor_voxel.data >> 24) & 0xFFu;
-        }
+        uint type = getVoxelType(v);
+        if (type == VOXEL_TYPE_ENTITY || type == VOXEL_TYPE_DEBUG || type >= 8u) continue;
+        type_counts[type]++;
+        color_sum += getVoxelColor(v, world_pos + ivec3(x, y, z));
+        color_weight += 1.0;
     }
 
-    // Only modify voxels near the surface (where there's a mix of air and solid)
-    if (solid_count == 0 || air_count == 0) return;
+    if (inner_solid == 0 || inner_solid == 27) return;
 
-    // Majority vote: if more neighbors are solid, become solid; if more are air, become air
-    if (center_is_air && solid_count > 3) {
-        // Fill in: this air voxel is mostly surrounded by solid — fill it
-        vec3 avg_color = color_sum / float(solid_count);
-        Voxel new_voxel = createVoxel(dominant_type, avg_color);
+    // --- Weighted occupancy density over the wide kernel ---
+    int kernel_radius = clamp(int(params.radius * 0.25 + 0.5), 1, MAX_KERNEL_RADIUS);
+    float cutoff_sq = (float(kernel_radius) + 0.5) * (float(kernel_radius) + 0.5);
+
+    float occupancy = 0.0;
+    float total_weight = 0.0;
+
+    for (int x = -kernel_radius; x <= kernel_radius; x++)
+    for (int y = -kernel_radius; y <= kernel_radius; y++)
+    for (int z = -kernel_radius; z <= kernel_radius; z++) {
+        float dist_sq = float(x * x + y * y + z * z);
+        float w = 1.0 - dist_sq / cutoff_sq;
+        if (w <= 0.0) continue;
+
+        Voxel v;
+        if (sampleOccupied(world_pos + ivec3(x, y, z), v))
+            occupancy += w;
+        total_weight += w;
+    }
+    float density = occupancy / total_weight;
+
+    // --- Threshold with hysteresis and rim feathering ---
+    // The base margin keeps flat surfaces from flickering between fill and
+    // erode; the rim term raises the bar toward the brush edge so the effect
+    // fades out instead of ending in a hard sphere-shaped seam.
+    float margin = 0.05 + 0.4 * smoothstep(0.6, 1.0, d / params.radius);
+
+    if (center_is_air && density > 0.5 + margin) {
+        // Fill: pick the dominant nearby material and blend its colors.
+        uint dominant_type = 0u;
+        uint best_count = 0u;
+        for (uint t = 1u; t < 8u; t++) {
+            if (type_counts[t] > best_count) {
+                best_count = type_counts[t];
+                dominant_type = t;
+            }
+        }
+        if (dominant_type == 0u) return; // nothing fillable nearby (e.g. only entities)
+
+        Voxel new_voxel = createVoxel(dominant_type, color_sum / color_weight);
         setBothVoxelBuffers(voxel_index, new_voxel);
         setBothAux(voxel_index, defaultAuxFor(dominant_type));
-    } else if (!center_is_air && air_count > 3) {
-        // Erode: this solid voxel is mostly surrounded by air — remove it
+    } else if (!center_is_air && density < 0.5 - margin) {
         setBothVoxelBuffers(voxel_index, createAirVoxel());
+        setBothAux(voxel_index, defaultAuxFor(VOXEL_TYPE_AIR));
     }
 }

@@ -41,6 +41,19 @@ layout(std430, set = 0, binding = 3) buffer VoxelWorldData2 {
     Voxel voxelData2[];
 };
 
+#define MAX_POINT_LIGHTS 64
+
+struct PointLight {
+    vec4 position; // xyz = world position, w = range (world units)
+    vec4 color;    // rgb = color premultiplied by energy
+};
+
+layout(std430, set = 0, binding = 4) buffer VoxelWorldPointLights {
+    int count;
+    int _pad0, _pad1, _pad2;
+    PointLight lights[];
+} pointLights;
+
 
 
 // -------------------------------------- VOXEL DATA --------------------------------------
@@ -692,6 +705,53 @@ vec3 sampleSkyColor(vec3 direction) {
 float computeShadow(vec3 position, vec3 normal, vec3 lightDir) {
     float t; ivec3 grid_position; vec3 normal_out; int step_count; Voxel voxel;
     return voxelTraceWorld(position + normal * 0.001, lightDir, vec2(0.0, 100.0), voxel, t, grid_position, normal_out, step_count) ? (t > 0.001 ? 0.0 : 1.0) : 1.0;
+}
+
+// Shadow test toward a point light: occluded if any voxel lies between the
+// surface and the light. The trace range is capped at the light distance so
+// geometry behind the light cannot cast a shadow.
+float computePointShadow(vec3 position, vec3 normal, vec3 lightPos) {
+    vec3 toLight = lightPos - position;
+    float dist = length(toLight);
+    if (dist < 1e-3) return 1.0;
+    float t; ivec3 grid_position; vec3 normal_out; int step_count; Voxel voxel;
+    bool hit = voxelTraceWorld(position + normal * 0.001, toLight / dist, vec2(0.0, dist), voxel, t, grid_position, normal_out, step_count);
+    return (hit && t < dist - 0.001) ? 0.0 : 1.0;
+}
+
+// Accumulated Blinn-Phong contribution of all point lights at a surface point.
+// Shadow rays are only fired for lights that are in range, face the surface,
+// and contribute more than a visibility threshold after attenuation.
+vec3 computePointLights(vec3 baseColor, vec3 position, vec3 normal, vec3 viewDir) {
+    vec3 total = vec3(0.0);
+    int light_count = min(pointLights.count, MAX_POINT_LIGHTS);
+    for (int i = 0; i < light_count; i++) {
+        vec3 lightPos = pointLights.lights[i].position.xyz;
+        float range = pointLights.lights[i].position.w;
+        vec3 toLight = lightPos - position;
+        float dist = length(toLight);
+        if (range <= 0.0 || dist >= range) continue;
+
+        vec3 lightDir = toLight / max(dist, 1e-4);
+        float NdotL = dot(normal, lightDir);
+        if (NdotL <= 0.0) continue;
+
+        // Windowed inverse-square falloff: ~1/d^2 near the light, smoothly
+        // reaching exactly zero at `range`.
+        float window = clamp(1.0 - pow(dist / range, 4.0), 0.0, 1.0);
+        float attenuation = (window * window) / (dist * dist + 1.0);
+
+        vec3 lightColor = pointLights.lights[i].color.rgb;
+        if (attenuation * max(lightColor.r, max(lightColor.g, lightColor.b)) < 0.002) continue;
+
+        float shadow = computePointShadow(position, normal, lightPos);
+        if (shadow <= 0.0) continue;
+
+        vec3 H = normalize(lightDir + viewDir);
+        float specular = pow(max(dot(normal, H), 0.0), 10.0);
+        total += (shadow * attenuation) * lightColor * (NdotL * baseColor + 0.25 * specular);
+    }
+    return total;
 }
 
 // ----- AO utilities (occupancy and corner AO) -----

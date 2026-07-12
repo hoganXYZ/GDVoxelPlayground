@@ -6,7 +6,7 @@
 using namespace godot;
 
 VoxelWorldUpdatePass::VoxelWorldUpdatePass(RenderingDevice *rd, VoxelWorldRIDs &voxel_world_rids, const Vector3i size)
-    : _size(size)
+    : _rd(rd), _rids(voxel_world_rids), _size(size)
 {
     movement_shader = new ComputeShader("res://addons/voxel_playground/src/shaders/automata/movement.glsl", rd);
     voxel_world_rids.add_voxel_buffers(movement_shader);
@@ -18,10 +18,6 @@ VoxelWorldUpdatePass::VoxelWorldUpdatePass(RenderingDevice *rd, VoxelWorldRIDs &
     voxel_world_rids.add_ca_buffers(reaction_shader);
     reaction_shader->finish_create_uniforms();
 
-    vine_growth_shader = new ComputeShader("res://addons/voxel_playground/src/shaders/automata/vine_growth.glsl", rd);
-    voxel_world_rids.add_voxel_buffers(vine_growth_shader);
-    vine_growth_shader->finish_create_uniforms();
-
     cleanup_shader = new ComputeShader("res://addons/voxel_playground/src/shaders/automata/cleanup_pass.glsl", rd);
     voxel_world_rids.add_voxel_buffers(cleanup_shader);
     voxel_world_rids.add_ca_buffers(cleanup_shader);
@@ -32,13 +28,38 @@ VoxelWorldUpdatePass::~VoxelWorldUpdatePass()
 {
     delete movement_shader;
     delete reaction_shader;
-    delete vine_growth_shader;
+    delete custom_shader;
     delete cleanup_shader;
+}
+
+void VoxelWorldUpdatePass::set_custom_source(const String &source)
+{
+    if (source == _custom_source && (custom_shader != nullptr || source.is_empty()))
+        return;
+    _custom_source = source;
+    delete custom_shader;
+    custom_shader = nullptr;
+    if (source.is_empty())
+        return;
+
+    // the virtual path anchors #include resolution next to the other automata shaders
+    ComputeShader *shader = new ComputeShader(
+        _rd, source, "res://addons/voxel_playground/src/shaders/automata/_generated_custom_pass.glsl");
+    _rids.add_voxel_buffers(shader);
+    _rids.add_ca_buffers(shader);
+    shader->finish_create_uniforms();
+    if (!shader->check_ready())
+    {
+        UtilityFunctions::printerr("VoxelWorldUpdatePass: custom pass failed to compile; disabling it");
+        delete shader;
+        return;
+    }
+    custom_shader = shader;
 }
 
 void VoxelWorldUpdatePass::run_movement()
 {
-    if (movement_shader == nullptr || vine_growth_shader == nullptr)
+    if (movement_shader == nullptr)
     {
         UtilityFunctions::printerr("VoxelWorldUpdatePass::run_movement() compute shader is null");
         return;
@@ -61,8 +82,9 @@ void VoxelWorldUpdatePass::run_movement()
     movement_shader->set_push_constant(ComputeShader::struct_to_packed_byte_array(pc));
     movement_shader->compute(group_count, false);
 
-    // custom kernels for MOVEMENT_CUSTOM elements
-    vine_growth_shader->compute(group_count, false);
+    // Tier-4 custom kernels (runtime-compiled from element custom_glsl)
+    if (custom_shader != nullptr)
+        custom_shader->compute(group_count, false);
 }
 
 void VoxelWorldUpdatePass::run_reactions()
