@@ -1,0 +1,7 @@
+[gd_resource type="VoxelReaction" format=3 uid="uid://bb54j2qg5rgbn"]
+
+[resource]
+partner = "lava"
+self_becomes = "fire"
+chance = 0.03
+oneway = true

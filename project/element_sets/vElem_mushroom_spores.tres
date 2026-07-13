@@ -1,0 +1,36 @@
+[gd_resource type="VoxelElement" format=3 uid="uid://dsngrm17nvs8h"]
+
+[ext_resource type="VoxelReaction" uid="uid://nmeihl85ycqg" path="res://element_sets/VoxelReaction_mushlava.tres" id="1_y5n6i"]
+[ext_resource type="VoxelReaction" uid="uid://bb54j2qg5rgbn" path="res://element_sets/VoxelReaction_mushfire.tres" id="2_evjr3"]
+
+[resource]
+element_name = "mushroom_spore"
+movement_class = 1
+density = 150.0
+base_color = Color(0.91775256, 0.9058309, 0.83228356, 1)
+initial_temp = 50.0
+heat_conduct = 0.1
+temp_high = 498.0
+state_high = "fire"
+reactions = [ExtResource("1_y5n6i"), ExtResource("2_evjr3")]
+custom_glsl = "void ca_tick(ivec3 pos, uint voxel_index, Voxel voxel, uint aux) {
+    ivec3 below = pos + ivec3(0, -1, 0);
+    ivec3 above = pos + ivec3(0, 1, 0);
+    if (!isValidPos(below) || !isValidPos(above)) return;
+    // germinate on solid(1), sand(4), wood(13), ash(15)
+    uint ground = getVoxelType(getPreviousVoxel(posToIndex(below)));
+    if (ground != 1u && ground != 4u && ground != 13u && ground != 15u) return;
+    if (!isVoxelAir(getPreviousVoxel(posToIndex(above)))) return;
+    if (cellRoll10k(pos, 77u) >= 100u) return; // 1% per tick once settled
+
+    uvec4 rv = hash(uvec4(uvec3(pos), voxelWorldProperties.frame));
+    uint height  = 3u + (rv.y % 5u); // stalk height 3-7
+    uint palette = rv.z % 8u;        // one cap color for the whole mushroom
+
+    Voxel tip = createElementVoxel(21u, pos); // mushroom_stalk tip
+    tip.data |= (palette << 5) | (height & 0x1Fu);
+    // CAS from our own data: fails harmlessly if we moved this tick
+    if (casVoxelCurrent(voxel_index, voxel.data, tip.data) == voxel.data) {
+        setAux(voxel_index, defaultAuxFor(21u));
+    }
+}"
