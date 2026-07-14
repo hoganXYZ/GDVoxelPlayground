@@ -29,7 +29,13 @@ void main() {
                 if(!isVoxelAir(prev_voxel) && isTypeDynamic(getVoxelType(prev_voxel))) {
                     setPreviousVoxel(voxel_index, createAirVoxel());
                 }
-                
+
+                // zero the consumed dynamics buffer: it becomes the write
+                // target of the next pass, and the movement pass requires it
+                // all-zero so atomicOr writes compose safely (see
+                // voxel_elements.glsl.inc DYNAMICS ACCESS)
+                setPreviousDynamics(voxel_index, 0u);
+
                 occupied += isVoxelAir(getVoxel(voxel_index)) ? 0 : 1;
             }
         }

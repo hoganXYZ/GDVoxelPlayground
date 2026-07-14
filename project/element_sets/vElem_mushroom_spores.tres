@@ -5,6 +5,10 @@
 
 [resource]
 element_name = "mushroom_spore"
+inertial_resistance = 0.8
+friction_factor = 0.6
+dispersion_rate = 0
+explosion_resistance = 1.0
 movement_class = 1
 density = 150.0
 base_color = Color(0.91775256, 0.9058309, 0.83228356, 1)

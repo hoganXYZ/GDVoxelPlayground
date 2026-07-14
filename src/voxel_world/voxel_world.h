@@ -61,6 +61,9 @@ private:
     Color ground_color = Color(0.5, 0.3, 0.15, 1.0);
     Color sky_color = Color(1.0, 1.0, 1.0, 1.0);
 
+    // explosions queued from script; uploaded and consumed on the next tick
+    std::vector<GpuExplosion> _pending_explosions;
+
     void init();
     void cleanup();
     void update(float delta);
@@ -111,6 +114,12 @@ public:
 
     void edit_world(const Vector3 &camera_origin, const Vector3 &camera_direction, const float radius, const float range, const int value);
     void edit_world_smooth(const Vector3 &camera_origin, const Vector3 &camera_direction, const float radius, const float range);
+    // paint a sphere directly at a grid-space position (no raycast); same
+    // `value` element encoding as edit_world
+    void edit_world_at(const Vector3 &grid_position, const float radius, const int value);
+    // queue an explosion at a grid-space center; executed by the GPU explosion
+    // pass at the start of the next simulation tick (max 16 per tick)
+    void add_explosion(const Vector3 &grid_center, const float radius, const float strength);
     Vector3 raycast_world(const Vector3 &camera_origin, const Vector3 &camera_direction, const float range);
     // Stamp a texture into the world through a projector frustum. `texture` is an
     // RD texture RID (e.g. RenderingServer.texture_get_rd_texture of a viewport
@@ -156,6 +165,9 @@ public:
     void upload_elements();
 
     Dictionary get_voxel_at(const Vector3i &grid_pos);
+    // count voxels of an element type in an inclusive grid-space box with a
+    // single GPU readback (per-voxel get_voxel_at readbacks stall the frame)
+    Dictionary census_box(const Vector3i &box_min, const Vector3i &box_max, const int type_id);
 };
 
 #endif // VOXEL_WORLD_H

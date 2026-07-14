@@ -134,6 +134,26 @@ void VoxelElement::_bind_methods()
     ClassDB::bind_method(D_METHOD("get_flow"), &VoxelElement::get_flow);
     ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "flow", PROPERTY_HINT_RANGE, "0,1,0.001"), "set_flow", "get_flow");
 
+    ClassDB::bind_method(D_METHOD("set_inertial_resistance", "resistance"), &VoxelElement::set_inertial_resistance);
+    ClassDB::bind_method(D_METHOD("get_inertial_resistance"), &VoxelElement::get_inertial_resistance);
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "inertial_resistance", PROPERTY_HINT_RANGE, "0,1.1,0.001"),
+                 "set_inertial_resistance", "get_inertial_resistance");
+
+    ClassDB::bind_method(D_METHOD("set_friction_factor", "friction"), &VoxelElement::set_friction_factor);
+    ClassDB::bind_method(D_METHOD("get_friction_factor"), &VoxelElement::get_friction_factor);
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "friction_factor", PROPERTY_HINT_RANGE, "0,1,0.001"),
+                 "set_friction_factor", "get_friction_factor");
+
+    ClassDB::bind_method(D_METHOD("set_dispersion_rate", "cells"), &VoxelElement::set_dispersion_rate);
+    ClassDB::bind_method(D_METHOD("get_dispersion_rate"), &VoxelElement::get_dispersion_rate);
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "dispersion_rate", PROPERTY_HINT_RANGE, "0,32,1"),
+                 "set_dispersion_rate", "get_dispersion_rate");
+
+    ClassDB::bind_method(D_METHOD("set_explosion_resistance", "resistance"), &VoxelElement::set_explosion_resistance);
+    ClassDB::bind_method(D_METHOD("get_explosion_resistance"), &VoxelElement::get_explosion_resistance);
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "explosion_resistance"), "set_explosion_resistance",
+                 "get_explosion_resistance");
+
     ClassDB::bind_method(D_METHOD("set_base_color", "color"), &VoxelElement::set_base_color);
     ClassDB::bind_method(D_METHOD("get_base_color"), &VoxelElement::get_base_color);
     ADD_PROPERTY(PropertyInfo(Variant::COLOR, "base_color"), "set_base_color", "get_base_color");

@@ -7,7 +7,7 @@
 
 // Set to 1 to draw on-screen debug values and tint miss pixels by cause
 // (red = ray never reached the world AABB, blue heat = traversed but empty).
-#define DEBUG_OVERLAY 1
+#define DEBUG_OVERLAY 0
 #include "debug_print.glsl.inc"
 
 // ----------------------------------- OBLIQUE PROJECTION SETTINGS -----------------------------------
@@ -73,9 +73,10 @@ vec3 blinnPhongShading(vec3 baseColor, vec3 normal, vec3 lightDir, vec3 lightCol
 
     vec3 ambient = baseColor;
 
-    vec3 result = 0.25 * shadow * specular;
-    result += (shadow * 0.5 + 0.5) * diffuse;
-    result += 0.1 * ambient;
+    vec3 result = 0.25 * shadow * specular; // 0.25
+    result += (1.0) * diffuse; //(shadow * 0.5 + 0.5) * diffuse;
+    result += 0.3 * ambient; // ambient light
+
     // Overriding and just returning base color
     // result = baseColor;
     return result;
@@ -182,12 +183,18 @@ void main() {
     // direct illumination
     if(emission < 1) {
         vec3 albedo = color;
-        float shadow = computeShadow(hitPos, normal, voxelWorldProperties.sun_direction.xyz);
+
+        float voxelSize = voxelWorldProperties.scale;
+        vec3 flatHitPos = voxel_pos + (vec3(0.5) + normal * 0.501) * voxelSize;
+
+        float shadow = computeShadow(flatHitPos, normal, voxelWorldProperties.sun_direction.xyz);
         float ao = computeAmbientOcclusion(hitPos, grid_position, normal) * 0.7 + 0.3;
         // override ao for now
         //ao = 1.0;
+        // override shadow for now
+        shadow = 1.0;
         color = ao * blinnPhongShading(color, normal, normalize(voxelWorldProperties.sun_direction.xyz), voxelWorldProperties.sun_color.rgb, voxel_view_dir, shadow);
-        color += computePointLights(albedo, hitPos, normal, voxel_view_dir);
+        color += computePointLights(albedo, flatHitPos, normal, voxel_view_dir);
     }
 
     // Brush preview overlay

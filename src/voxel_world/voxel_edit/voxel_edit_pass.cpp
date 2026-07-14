@@ -62,6 +62,28 @@ void VoxelEditPass::edit_using_raycast(const Vector3 &camera_origin, const Vecto
 
 void VoxelEditPass::edit_at(const Vector3 &position, const float radius, const int value)
 {
+    if (ray_cast_shader == nullptr || !ray_cast_shader->check_ready() || edit_shader == nullptr ||
+        !edit_shader->check_ready())
+    {
+        UtilityFunctions::printerr("VoxelEditPass::edit_at() edit shader is null or not ready");
+        return;
+    }
+
+    // same edit dispatch as edit_using_raycast, but with a caller-provided
+    // grid-space center instead of a raycast hit
+    _edit_params.camera_origin = Vector4(position.x, position.y, position.z, 1.0f);
+    _edit_params.camera_direction = Vector4(0, -1, 0, 0);
+    _edit_params.hit_position = Vector4(position.x, position.y, position.z, 1.0f);
+    _edit_params.near = 0.1f;
+    _edit_params.far = 100.0f;
+    _edit_params.radius = radius;
+    _edit_params.value = value;
+
+    ray_cast_shader->update_storage_buffer_uniform(_edit_params_rid, _edit_params.to_packed_byte_array());
+
+    const Vector3 group_size = Vector3(8, 8, 8);
+    const Vector3i group_count = Vector3i(std::ceil(2.0f * radius / group_size.x), std::ceil(2.0f * radius / group_size.y), std::ceil(2.0f * radius / group_size.z));
+    edit_shader->compute(group_count, false);
 }
 
 Vector3 VoxelEditPass::raycast(const Vector3 &camera_origin, const Vector3 &camera_direction, const float range)

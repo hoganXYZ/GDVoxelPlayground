@@ -45,7 +45,7 @@ layout(std430, set = 0, binding = 3) buffer VoxelWorldData2 {
 
 struct PointLight {
     vec4 position; // xyz = world position, w = range (world units)
-    vec4 color;    // rgb = color premultiplied by energy
+    vec4 color;    // rgb = color premultiplied by energy, w = light size (flat-illumination radius)
 };
 
 layout(std430, set = 0, binding = 4) buffer VoxelWorldPointLights {
@@ -736,10 +736,14 @@ vec3 computePointLights(vec3 baseColor, vec3 position, vec3 normal, vec3 viewDir
         float NdotL = dot(normal, lightDir);
         if (NdotL <= 0.0) continue;
 
-        // Windowed inverse-square falloff: ~1/d^2 near the light, smoothly
+        // Flat (full) illumination within the light's size, then windowed
+        // inverse-square falloff over the remaining distance, smoothly
         // reaching exactly zero at `range`.
-        float window = clamp(1.0 - pow(dist / range, 4.0), 0.0, 1.0);
-        float attenuation = (window * window) / (dist * dist + 1.0);
+        float size = min(pointLights.lights[i].color.w, range);
+        float falloffDist = max(dist - size, 0.0);
+        float falloffRange = max(range - size, 1e-4);
+        float window = clamp(1.0 - pow(falloffDist / falloffRange, 4.0), 0.0, 1.0);
+        float attenuation = (window * window) / (falloffDist * falloffDist + 1.0);
 
         vec3 lightColor = pointLights.lights[i].color.rgb;
         if (attenuation * max(lightColor.r, max(lightColor.g, lightColor.b)) < 0.002) continue;

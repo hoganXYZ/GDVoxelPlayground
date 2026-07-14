@@ -29,6 +29,9 @@ class VoxelWorldUpdatePass
     void run_movement();
     void run_reactions();
     void run_cleanup();
+    // apply the queued explosions (uploaded by VoxelWorld) to the prev buffer;
+    // call before run_movement on the same buffer flip
+    void run_explosions();
 
     // Compile (or drop, when empty) the Tier-4 custom pass from generated GLSL
     // (VoxelElementSet::build_custom_source). No-op if the source is unchanged.
@@ -39,6 +42,7 @@ class VoxelWorldUpdatePass
     ComputeShader *reaction_shader = nullptr;
     ComputeShader *custom_shader = nullptr;
     ComputeShader *cleanup_shader = nullptr;
+    ComputeShader *explosion_shader = nullptr;
     String _custom_source;
     RenderingDevice *_rd = nullptr;
     VoxelWorldRIDs _rids;

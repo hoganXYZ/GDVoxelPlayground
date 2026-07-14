@@ -111,8 +111,11 @@ void main() {
         Voxel new_voxel = createVoxel(dominant_type, color_sum / color_weight);
         setBothVoxelBuffers(voxel_index, new_voxel);
         setBothAux(voxel_index, defaultAuxFor(dominant_type));
+        // current buffer only — the other one must stay zero (see sphere_edit)
+        setDynamics(voxel_index, defaultDynamicsFor(dominant_type));
     } else if (!center_is_air && density < 0.5 - margin) {
         setBothVoxelBuffers(voxel_index, createAirVoxel());
         setBothAux(voxel_index, defaultAuxFor(VOXEL_TYPE_AIR));
+        setDynamics(voxel_index, 0u);
     }
 }

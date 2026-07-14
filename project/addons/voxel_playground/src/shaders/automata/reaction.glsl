@@ -38,6 +38,19 @@ void main() {
         return; // air only participates if it has authored rules (e.g. condensation)
 
     uint aux = is_air ? defaultAuxFor(0u) : getPreviousAux(voxel_index);
+
+    // ballistic particles ignore reactions/heat/life while in flight
+    // (Java Particle disables receiveHeat and never reacts)
+    if (!is_air && isTypeDynamic(type)) {
+        uint dyn = getPreviousDynamics(voxel_index);
+        if ((dynFlags(dyn) & DYN_PARTICLE) != 0u) {
+            setVoxel(voxel_index, v);
+            setAux(voxel_index, aux);
+            setDynamics(voxel_index, dyn);
+            return;
+        }
+    }
+
     uint temp_q = auxGetTempQ(aux);
     uint new_type = type;
     bool fired = false;
@@ -135,10 +148,15 @@ void main() {
             setVoxel(voxel_index, product);
             setAux(voxel_index, new_aux);
         }
+        // transformation products start with fresh dynamics (awake, spawn velocity)
+        setDynamics(voxel_index, defaultDynamicsFor(new_type));
     } else {
-        // unchanged: this pass owns the flip, so dynamics must be carried forward
-        if (isTypeDynamic(type))
+        // unchanged: this pass owns the flip, so voxel data, aux and dynamics
+        // must all be carried forward
+        if (isTypeDynamic(type)) {
             setVoxel(voxel_index, v);
+            setDynamics(voxel_index, getPreviousDynamics(voxel_index));
+        }
         setAux(voxel_index, auxSetLife(auxSetTempQ(aux, temp_q), life));
     }
 }

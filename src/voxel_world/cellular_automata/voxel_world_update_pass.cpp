@@ -22,6 +22,12 @@ VoxelWorldUpdatePass::VoxelWorldUpdatePass(RenderingDevice *rd, VoxelWorldRIDs &
     voxel_world_rids.add_voxel_buffers(cleanup_shader);
     voxel_world_rids.add_ca_buffers(cleanup_shader);
     cleanup_shader->finish_create_uniforms();
+
+    explosion_shader = new ComputeShader("res://addons/voxel_playground/src/shaders/automata/explosion_pass.glsl", rd);
+    voxel_world_rids.add_voxel_buffers(explosion_shader);
+    voxel_world_rids.add_ca_buffers(explosion_shader);
+    explosion_shader->add_existing_buffer(voxel_world_rids.explosions, RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 15, 1);
+    explosion_shader->finish_create_uniforms();
 }
 
 VoxelWorldUpdatePass::~VoxelWorldUpdatePass()
@@ -30,6 +36,7 @@ VoxelWorldUpdatePass::~VoxelWorldUpdatePass()
     delete reaction_shader;
     delete custom_shader;
     delete cleanup_shader;
+    delete explosion_shader;
 }
 
 void VoxelWorldUpdatePass::set_custom_source(const String &source)
@@ -95,6 +102,16 @@ void VoxelWorldUpdatePass::run_reactions()
     const Vector3i group_count = Vector3i(std::ceil(_size.x / group_size.x), std::ceil(_size.y / group_size.y),
                                           std::ceil(_size.z / group_size.z));
     reaction_shader->compute(group_count, false);
+}
+
+void VoxelWorldUpdatePass::run_explosions()
+{
+    if (explosion_shader == nullptr)
+        return;
+    const Vector3 group_size = Vector3(8, 8, 8);
+    const Vector3i group_count = Vector3i(std::ceil(_size.x / group_size.x), std::ceil(_size.y / group_size.y),
+                                          std::ceil(_size.z / group_size.z));
+    explosion_shader->compute(group_count, false);
 }
 
 void VoxelWorldUpdatePass::run_cleanup()

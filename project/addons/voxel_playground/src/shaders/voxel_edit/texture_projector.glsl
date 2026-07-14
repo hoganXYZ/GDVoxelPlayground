@@ -104,4 +104,6 @@ void main() {
     uint index = posToIndex(write_pos);
     setBothVoxelBuffers(index, new_voxel);
     setBothAux(index, defaultAuxFor(voxel_type));
+    // current buffer only — the other one must stay zero (see sphere_edit)
+    setDynamics(index, defaultDynamicsFor(voxel_type));
 }

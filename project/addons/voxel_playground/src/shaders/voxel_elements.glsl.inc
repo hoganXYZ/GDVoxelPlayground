@@ -34,7 +34,7 @@ const uint OP_DELETE  = 7u; // delete occupant (arg = element filter, ELEM_ANY =
 
 // -------------------------------------- STRUCTS --------------------------------------
 
-// must match GpuElementDef in voxel_element_set.h (80 bytes)
+// must match GpuElementDef in voxel_element_set.h (96 bytes)
 struct ElementDef {
     uint movement_class;
     float density;
@@ -54,6 +54,10 @@ struct ElementDef {
     uint base_color16;
     uint behavior_offset;
     uint behavior_count;
+    float inertial_resistance;  // 0-1: chance a passing mover fails to wake this powder; >=1 never wakes
+    float friction_factor;      // 0-1: lateral velocity kept on ground contact (multiplied with the support's)
+    uint dispersion_rate;       // liquids/gases: lateral cells searched per tick to level out
+    float explosion_resistance; // rays with strength below this are stopped/resisted
     uint _pad0;
     uint _pad1;
 };
@@ -98,6 +102,14 @@ layout(std430, set = 1, binding = 12) restrict readonly buffer BehaviorOpTable {
     BehaviorOp behaviorOps[];
 };
 
+layout(std430, set = 1, binding = 13) buffer VoxelDynamicsData {
+    uint voxelDynamics[];
+};
+
+layout(std430, set = 1, binding = 14) buffer VoxelDynamicsData2 {
+    uint voxelDynamics2[];
+};
+
 // -------------------------------------- AUX ACCESS --------------------------------------
 // aux packing: bits 0-15 temperature (kelvin*16), bits 16-23 life counter, bits 24-31 flags
 
@@ -122,9 +134,77 @@ void setAux(uint index, uint aux) {
         voxelAux2[index] = aux;
 }
 
+void setPreviousAux(uint index, uint aux) {
+    if (voxelWorldProperties.frame % 2 == 0)
+        voxelAux2[index] = aux;
+    else
+        voxelAux[index] = aux;
+}
+
 void setBothAux(uint index, uint aux) {
     voxelAux[index] = aux;
     voxelAux2[index] = aux;
+}
+
+// -------------------------------------- DYNAMICS ACCESS --------------------------------------
+// Per-voxel dynamics word (falling-sand physics state), double-buffered like aux:
+//   bits  0-7   vx  signed 8-bit velocity, 1/16 cell-per-tick units
+//   bits  8-15  vy  signed 8-bit (negative = down)
+//   bits 16-23  vz  signed 8-bit
+//   bits 24-31  flags
+//
+// Concurrency contract (movement pass): the current-frame dynamics buffer is
+// guaranteed all-zero at movement start (cleanup_pass zeroes the consumed
+// buffer every half-tick), and ALL movement-pass writes to it go through
+// atomicOr. The single owner of a cell ORs its full word into zero (== a
+// plain write), while neighbors may concurrently OR single flag bits
+// (DYN_WOKEN) — commutative, so no ordering or lost-update hazards.
+
+const uint DYN_FREEFALLING = 1u << 24; // in motion under gravity; cleared when it comes to rest
+const uint DYN_PARTICLE    = 1u << 25; // ballistic particle: flies ignoring normal CA rules
+const uint DYN_WOKEN       = 1u << 26; // a neighbor moved past; roll against inertial_resistance
+
+ivec3 dynVel(uint d) {
+    return ivec3(bitfieldExtract(int(d), 0, 8),
+                 bitfieldExtract(int(d), 8, 8),
+                 bitfieldExtract(int(d), 16, 8));
+}
+
+uint dynFlags(uint d) { return d & 0xFF000000u; }
+
+uint packDyn(ivec3 vel, uint flags) {
+    ivec3 v = clamp(vel, ivec3(-127), ivec3(127));
+    return (uint(v.x) & 0xFFu) | ((uint(v.y) & 0xFFu) << 8) | ((uint(v.z) & 0xFFu) << 16) |
+           (flags & 0xFF000000u);
+}
+
+uint getPreviousDynamics(uint index) {
+    return voxelWorldProperties.frame % 2 == 0 ? voxelDynamics2[index] : voxelDynamics[index];
+}
+
+uint getCurrentDynamics(uint index) {
+    return voxelWorldProperties.frame % 2 == 0 ? voxelDynamics[index] : voxelDynamics2[index];
+}
+
+void setDynamics(uint index, uint d) {
+    if (voxelWorldProperties.frame % 2 == 0)
+        voxelDynamics[index] = d;
+    else
+        voxelDynamics2[index] = d;
+}
+
+void setPreviousDynamics(uint index, uint d) {
+    if (voxelWorldProperties.frame % 2 == 0)
+        voxelDynamics2[index] = d;
+    else
+        voxelDynamics[index] = d;
+}
+
+void atomicOrCurrentDynamics(uint index, uint d) {
+    if (voxelWorldProperties.frame % 2 == 0)
+        atomicOr(voxelDynamics[index], d);
+    else
+        atomicOr(voxelDynamics2[index], d);
 }
 
 // -------------------------------------- ELEMENT HELPERS --------------------------------------
@@ -135,6 +215,18 @@ bool isTypeDynamic(uint type) {
 
 uint defaultAuxFor(uint type) {
     return makeAux(elementDefs[type].initial_temp_q, elementDefs[type].life_init);
+}
+
+// initial dynamics word for a freshly created element (paint, reactions, ops):
+// dynamic elements start awake, falling classes at the reference spawn fall
+// speed (FallingSandJava vel.y = -124 => -33 quanta of 1/16 cell/tick)
+uint defaultDynamicsFor(uint type) {
+    ElementDef def = elementDefs[type];
+    if ((def.flags & ELEMENT_FLAG_DYNAMIC) == 0u)
+        return 0u;
+    if (def.movement_class == MOVE_POWDER || def.movement_class == MOVE_LIQUID)
+        return packDyn(ivec3(0, -33, 0), DYN_FREEFALLING);
+    return DYN_FREEFALLING;
 }
 
 // create a voxel of the given element with its base color, jittered per position

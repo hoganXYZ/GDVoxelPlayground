@@ -32,10 +32,14 @@ struct GpuElementDef
     uint32_t base_color16 = 0;
     uint32_t behavior_offset = 0;
     uint32_t behavior_count = 0;
+    float inertial_resistance = 0.1f;  // 0-1 chance a passing mover fails to wake this powder; >=1 never wakes
+    float friction_factor = 0.9f;      // 0-1 lateral velocity kept on ground contact
+    uint32_t dispersion_rate = 4;      // liquids/gases: lateral cells searched per tick
+    float explosion_resistance = 1.0f; // rays with strength below this are stopped/resisted
     uint32_t _pad0 = 0;
     uint32_t _pad1 = 0;
 };
-static_assert(sizeof(GpuElementDef) == 80, "GpuElementDef must match the GLSL struct layout");
+static_assert(sizeof(GpuElementDef) == 96, "GpuElementDef must match the GLSL struct layout");
 
 struct GpuReactionRule
 {

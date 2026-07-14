@@ -137,6 +137,10 @@ bool VoxelElementSet::build_tables(PackedByteArray &r_element_table, PackedByteA
         d.movement_class = (uint32_t)CLAMP(e->get_movement_class(), 0, 4);
         d.density = MAX(e->get_density(), 0.001f);
         d.flow = CLAMP(e->get_flow(), 0.0f, 1.0f);
+        d.inertial_resistance = MAX(e->get_inertial_resistance(), 0.0f);
+        d.friction_factor = CLAMP(e->get_friction_factor(), 0.0f, 1.0f);
+        d.dispersion_rate = (uint32_t)CLAMP(e->get_dispersion_rate(), 0, 32);
+        d.explosion_resistance = MAX(e->get_explosion_resistance(), 0.0f);
         d.initial_temp_q = quantize_temp(e->get_initial_temp());
         d.heat_conduct = CLAMP(e->get_heat_conduct(), 0.0f, 1.0f);
         d.emission = e->get_emission();
@@ -379,6 +383,16 @@ static Ref<VoxelElement> make_element(const String &name, int movement_class, fl
     return e;
 }
 
+// falling-sand physics constants (values ported from FallingSandJava materials)
+static void set_physics(const Ref<VoxelElement> &e, float inertial_resistance, float friction_factor,
+                        int dispersion_rate, float explosion_resistance)
+{
+    e->set_inertial_resistance(inertial_resistance);
+    e->set_friction_factor(friction_factor);
+    e->set_dispersion_rate(dispersion_rate);
+    e->set_explosion_resistance(explosion_resistance);
+}
+
 Ref<VoxelElementSet> VoxelElementSet::create_default()
 {
     Ref<VoxelElementSet> set;
@@ -388,9 +402,11 @@ Ref<VoxelElementSet> VoxelElementSet::create_default()
     Ref<VoxelElement> air = make_element("air", VoxelElement::MOVEMENT_STATIC, 1.0f, Color(0, 0, 0), 0.03f, 293.0f);
     Ref<VoxelElement> solid =
         make_element("solid", VoxelElement::MOVEMENT_STATIC, 2700.0f, Color(0.24f, 0.25f, 0.32f), 0.2f, 293.0f);
+    set_physics(solid, 1.1f, 0.5f, 0, 4.0f);
 
     Ref<VoxelElement> water =
         make_element("water", VoxelElement::MOVEMENT_LIQUID, 1000.0f, Color(0.1f, 0.3f, 0.8f), 0.6f, 293.0f);
+    set_physics(water, 0.0f, 1.0f, 5, 0.0f);
     water->set_temp_high(373.0f);
     water->set_state_high("steam");
     water->set_temp_low(273.0f);
@@ -398,6 +414,7 @@ Ref<VoxelElementSet> VoxelElementSet::create_default()
 
     Ref<VoxelElement> lava =
         make_element("lava", VoxelElement::MOVEMENT_LIQUID, 2400.0f, Color(1.0f, 0.6f, 0.1f), 0.8f, 1500.0f);
+    set_physics(lava, 0.0f, 1.0f, 1, 1.0f);
     lava->set_flow(0.3f);
     lava->set_emission(1.0f);
     lava->set_temp_low(1000.0f);
@@ -405,6 +422,7 @@ Ref<VoxelElementSet> VoxelElementSet::create_default()
 
     Ref<VoxelElement> sand =
         make_element("sand", VoxelElement::MOVEMENT_POWDER, 2650.0f, Color(0.91f, 0.82f, 0.52f), 0.25f, 293.0f);
+    set_physics(sand, 0.1f, 0.9f, 0, 1.0f);
     sand->set_temp_high(1873.0f);
     sand->set_state_high("glass");
 
@@ -475,31 +493,38 @@ void ca_tick(ivec3 pos, uint voxel_index, Voxel voxel, uint aux) {
 
     Ref<VoxelElement> entity =
         make_element("entity", VoxelElement::MOVEMENT_STATIC, 1000.0f, Color(0.8f, 0.2f, 0.2f), 0.2f, 310.0f);
+    set_physics(entity, 1.1f, 0.5f, 0, 5.0f);
     Ref<VoxelElement> debug =
         make_element("debug", VoxelElement::MOVEMENT_STATIC, 1000.0f, Color(1.0f, 0.0f, 1.0f), 0.0f, 293.0f);
+    set_physics(debug, 1.1f, 0.5f, 0, 5.0f);
 
     // demo chemistry beyond the builtins
     Ref<VoxelElement> steam =
         make_element("steam", VoxelElement::MOVEMENT_GAS, 0.6f, Color(0.75f, 0.78f, 0.82f), 0.1f, 380.0f);
+    set_physics(steam, 0.0f, 1.0f, 2, 0.0f);
     steam->set_life(220);
     steam->set_life_into("water");
 
     Ref<VoxelElement> ice =
         make_element("ice", VoxelElement::MOVEMENT_STATIC, 917.0f, Color(0.65f, 0.8f, 0.95f), 0.4f, 260.0f);
+    set_physics(ice, 1.1f, 0.2f, 0, 4.0f);
     ice->set_temp_high(274.0f);
     ice->set_state_high("water");
 
     Ref<VoxelElement> fire =
         make_element("fire", VoxelElement::MOVEMENT_GAS, 0.3f, Color(1.0f, 0.45f, 0.08f), 0.9f, 1300.0f);
+    set_physics(fire, 0.0f, 1.0f, 2, 0.0f);
     fire->set_emission(2.0f);
     fire->set_life(40);
     fire->set_life_into("smoke");
 
     Ref<VoxelElement> glass =
         make_element("glass", VoxelElement::MOVEMENT_STATIC, 2500.0f, Color(0.7f, 0.85f, 0.9f), 0.15f, 293.0f);
+    set_physics(glass, 1.1f, 0.5f, 0, 4.0f);
 
     Ref<VoxelElement> oil =
         make_element("oil", VoxelElement::MOVEMENT_LIQUID, 880.0f, Color(0.16f, 0.12f, 0.07f), 0.2f, 293.0f);
+    set_physics(oil, 0.0f, 1.0f, 4, 1.0f);
     oil->set_flow(0.85f); // floats on water (lower density), burns readily
     Ref<VoxelReaction> oil_ignite = oil->add_reaction("fire", "fire", "", 0.25f);
     oil_ignite->set_oneway(true);
@@ -508,6 +533,7 @@ void ca_tick(ivec3 pos, uint voxel_index, Voxel voxel, uint aux) {
 
     Ref<VoxelElement> wood =
         make_element("wood", VoxelElement::MOVEMENT_STATIC, 600.0f, Color(0.42f, 0.28f, 0.12f), 0.12f, 293.0f);
+    set_physics(wood, 1.1f, 0.5f, 0, 1.0f);
     Ref<VoxelReaction> wood_ignite = wood->add_reaction("fire", "fire", "", 0.05f);
     wood_ignite->set_oneway(true);
     Ref<VoxelReaction> wood_lava = wood->add_reaction("lava", "fire", "", 0.02f);
@@ -515,19 +541,23 @@ void ca_tick(ivec3 pos, uint voxel_index, Voxel voxel, uint aux) {
 
     Ref<VoxelElement> smoke =
         make_element("smoke", VoxelElement::MOVEMENT_GAS, 0.4f, Color(0.15f, 0.15f, 0.16f), 0.05f, 400.0f);
+    set_physics(smoke, 0.0f, 1.0f, 2, 0.0f);
     smoke->set_life(150);
     smoke->set_life_into(""); // dissipates
 
     Ref<VoxelElement> ash =
         make_element("ash", VoxelElement::MOVEMENT_POWDER, 700.0f, Color(0.35f, 0.33f, 0.30f), 0.1f, 293.0f);
+    set_physics(ash, 0.8f, 0.6f, 0, 1.0f); // dirt-like: rarely woken, grippy
 
     Ref<VoxelElement> snow =
         make_element("snow", VoxelElement::MOVEMENT_POWDER, 150.0f, Color(0.92f, 0.94f, 0.98f), 0.3f, 265.0f);
+    set_physics(snow, 0.8f, 0.4f, 0, 1.0f);
     snow->set_temp_high(274.0f);
     snow->set_state_high("water");
 
     Ref<VoxelElement> gunpowder =
         make_element("gunpowder", VoxelElement::MOVEMENT_POWDER, 1700.0f, Color(0.2f, 0.2f, 0.22f), 0.3f, 293.0f);
+    set_physics(gunpowder, 0.8f, 0.4f, 0, 1.0f);
     Ref<VoxelReaction> boom = gunpowder->add_reaction("fire", "fire", "", 1.0f);
     boom->set_oneway(true);
     boom->set_temp_delta(800.0f); // chain detonation
@@ -549,6 +579,15 @@ void ca_tick(ivec3 pos, uint voxel_index, Voxel voxel, uint aux) {
     void_eater->set_emission(0.3f);
     void_eater->add_behavior_op(VoxelBehaviorOp::OP_DELETE, Vector3i(1, 0, 0), "", "", 0.5f,
                                 VoxelBehaviorOp::SYMMETRY_ALL);
+
+    // short-lived flash left behind by explosions (Java EXPLOSIONSPARK); the
+    // explosion pass looks this up by name and falls back to "fire"
+    Ref<VoxelElement> explosion_spark =
+        make_element("explosion_spark", VoxelElement::MOVEMENT_GAS, 0.2f, Color(1.0f, 0.7f, 0.25f), 0.6f, 1200.0f);
+    set_physics(explosion_spark, 0.0f, 1.0f, 4, 0.0f);
+    explosion_spark->set_emission(2.0f);
+    explosion_spark->set_life(14);
+    explosion_spark->set_life_into(""); // flashes out to air
 
     // freeze_lava.glsl parity, plus steam: lava touching water becomes rock,
     // the water flashes to steam
@@ -581,6 +620,7 @@ void ca_tick(ivec3 pos, uint voxel_index, Voxel voxel, uint aux) {
     set->add_element(gunpowder);
     set->add_element(goo);
     set->add_element(void_eater);
+    set->add_element(explosion_spark);
     return set;
 }
 

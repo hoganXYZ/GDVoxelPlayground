@@ -95,8 +95,18 @@ struct Voxel
 struct GpuPointLight
 {
     Vector4 position; // xyz = world position, w = range (world units)
-    Vector4 color;    // rgb = color premultiplied by energy
+    Vector4 color;    // rgb = color premultiplied by energy, w = light size (flat-illumination radius)
 };
+
+// one queued explosion; matches the vec4 pairs in explosion_pass.glsl
+struct GpuExplosion
+{
+    float cx, cy, cz; // grid-space center
+    float radius;
+    float strength;
+    float _p0 = 0.0f, _p1 = 0.0f, _p2 = 0.0f;
+};
+static_assert(sizeof(GpuExplosion) == 32, "GpuExplosion must match the GLSL layout");
 
 struct VoxelWorldProperties // match the struct on the gpu
 {
@@ -217,6 +227,16 @@ struct VoxelWorldRIDs
     RID voxel_aux;
     RID voxel_aux2;
     RID behavior_ops;
+
+    // per-voxel falling-sand dynamics channel (velocity + flags, double-buffered
+    // like aux; set 1, bindings 13-14)
+    RID voxel_dynamics;
+    RID voxel_dynamics2;
+
+    // explosion queue (header + 16 entries); bound at set 1 binding 15 on the
+    // explosion pass only
+    RID explosions;
+    static const int MAX_EXPLOSIONS_PER_TICK = 16;
 
     size_t brick_count;
     size_t voxel_count;

@@ -109,6 +109,10 @@ private:
     int movement_class = 0;
     float density = 1000.0f;      // kg/m^3-ish, drives sink/float swaps
     float flow = 1.0f;            // liquids: chance per tick to attempt lateral flow
+    float inertial_resistance = 0.1f;  // 0-1 chance a passing mover fails to wake this powder; >=1 never wakes
+    float friction_factor = 0.9f;      // 0-1 lateral velocity kept on ground contact
+    int dispersion_rate = 4;           // liquids/gases: lateral cells searched per tick to level out
+    float explosion_resistance = 1.0f; // explosion rays with strength below this are stopped/resisted
     Color base_color = Color(0.5f, 0.5f, 0.5f);
     float emission = 0.0f;
     float initial_temp = 293.0f;  // kelvin, applied when painted/created by rules
@@ -139,6 +143,14 @@ public:
     float get_density() const { return density; }
     void set_flow(float v) { flow = v; }
     float get_flow() const { return flow; }
+    void set_inertial_resistance(float v) { inertial_resistance = v; }
+    float get_inertial_resistance() const { return inertial_resistance; }
+    void set_friction_factor(float v) { friction_factor = v; }
+    float get_friction_factor() const { return friction_factor; }
+    void set_dispersion_rate(int v) { dispersion_rate = v; }
+    int get_dispersion_rate() const { return dispersion_rate; }
+    void set_explosion_resistance(float v) { explosion_resistance = v; }
+    float get_explosion_resistance() const { return explosion_resistance; }
     void set_base_color(const Color &v) { base_color = v; }
     Color get_base_color() const { return base_color; }
     void set_emission(float v) { emission = v; }

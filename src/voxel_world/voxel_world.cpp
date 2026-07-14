@@ -35,6 +35,29 @@ void VoxelWorld::edit_world_smooth(const Vector3 &camera_origin, const Vector3 &
     _smooth_edit_pass->edit_using_raycast(camera_origin, camera_direction, radius, range, 0);
 }
 
+void VoxelWorld::edit_world_at(const Vector3 &grid_position, const float radius, const int value)
+{
+    if (_edit_pass == nullptr)
+        return;
+    _edit_pass->edit_at(grid_position, radius, value);
+}
+
+void VoxelWorld::add_explosion(const Vector3 &grid_center, const float radius, const float strength)
+{
+    if ((int)_pending_explosions.size() >= VoxelWorldRIDs::MAX_EXPLOSIONS_PER_TICK)
+    {
+        UtilityFunctions::printerr("VoxelWorld::add_explosion(): explosion queue full (16/tick), dropping.");
+        return;
+    }
+    GpuExplosion e;
+    e.cx = grid_center.x;
+    e.cy = grid_center.y;
+    e.cz = grid_center.z;
+    e.radius = MAX(radius, 1.0f);
+    e.strength = strength;
+    _pending_explosions.push_back(e);
+}
+
 void VoxelWorld::project_texture(const RID &texture, const Vector2i &texture_size,
                                  const Projection &inv_view_projection, const Vector3 &origin, const int value,
                                  const Color &tint, const float alpha_threshold, const float max_range,
@@ -147,6 +170,7 @@ void VoxelWorld::_bind_methods()
 
     ClassDB::bind_method(D_METHOD("upload_cellpond_rules"), &VoxelWorld::upload_cellpond_rules);
     ClassDB::bind_method(D_METHOD("get_voxel_at", "grid_pos"), &VoxelWorld::get_voxel_at);
+    ClassDB::bind_method(D_METHOD("census_box", "box_min", "box_max", "type_id"), &VoxelWorld::census_box);
 
     ClassDB::bind_method(D_METHOD("get_properties_rid"), &VoxelWorld::get_properties_rid);
     ClassDB::bind_method(D_METHOD("get_voxel_bricks_rid"), &VoxelWorld::get_voxel_bricks_rid);
@@ -161,6 +185,10 @@ void VoxelWorld::_bind_methods()
                          &VoxelWorld::edit_world);
     ClassDB::bind_method(D_METHOD("edit_world_smooth", "camera_origin", "camera_direction", "radius", "range"),
                          &VoxelWorld::edit_world_smooth);
+    ClassDB::bind_method(D_METHOD("edit_world_at", "grid_position", "radius", "value"),
+                         &VoxelWorld::edit_world_at);
+    ClassDB::bind_method(D_METHOD("add_explosion", "grid_center", "radius", "strength"),
+                         &VoxelWorld::add_explosion);
     ClassDB::bind_method(D_METHOD("raycast_world", "camera_origin", "camera_direction", "range"),
                          &VoxelWorld::raycast_world);
     ClassDB::bind_method(D_METHOD("project_texture", "texture", "texture_size", "inv_view_projection", "origin",
@@ -245,6 +273,12 @@ void VoxelWorld::cleanup()
         _rd->free_rid(_voxel_world_rids.voxel_aux2);
     if (_voxel_world_rids.behavior_ops.is_valid())
         _rd->free_rid(_voxel_world_rids.behavior_ops);
+    if (_voxel_world_rids.voxel_dynamics.is_valid())
+        _rd->free_rid(_voxel_world_rids.voxel_dynamics);
+    if (_voxel_world_rids.voxel_dynamics2.is_valid())
+        _rd->free_rid(_voxel_world_rids.voxel_dynamics2);
+    if (_voxel_world_rids.explosions.is_valid())
+        _rd->free_rid(_voxel_world_rids.explosions);
 
     _voxel_world_rids = VoxelWorldRIDs();
     _initialized = false;
@@ -325,6 +359,18 @@ void VoxelWorld::init()
             aux_ptr[i] = ambient;
         _voxel_world_rids.voxel_aux = _rd->storage_buffer_create(aux_data.size(), aux_data);
         _voxel_world_rids.voxel_aux2 = _rd->storage_buffer_create(aux_data.size(), aux_data);
+
+        // per-voxel dynamics channel (velocity + freefall/particle flags),
+        // double-buffered like aux and zero-initialized (at rest, no flags)
+        PackedByteArray dynamics_data;
+        dynamics_data.resize(voxel_count * sizeof(uint32_t));
+        _voxel_world_rids.voxel_dynamics = _rd->storage_buffer_create(dynamics_data.size(), dynamics_data);
+        _voxel_world_rids.voxel_dynamics2 = _rd->storage_buffer_create(dynamics_data.size(), dynamics_data);
+
+        // explosion queue: 16-byte header {count, spark_id} + 16 entries
+        PackedByteArray explosion_data;
+        explosion_data.resize(16 + VoxelWorldRIDs::MAX_EXPLOSIONS_PER_TICK * sizeof(GpuExplosion));
+        _voxel_world_rids.explosions = _rd->storage_buffer_create(explosion_data.size(), explosion_data);
     }
 
     if (_element_set.is_null())
@@ -388,6 +434,24 @@ void VoxelWorld::update(float delta)
 
     if (simulation_enabled)
     {
+        // queued explosions edit the prev buffer right before movement reads it
+        if (!_pending_explosions.empty() && _update_pass != nullptr)
+        {
+            int spark_id = _element_set.is_valid() ? _element_set->find_element_id("explosion_spark") : -1;
+            if (spark_id < 0 && _element_set.is_valid())
+                spark_id = _element_set->find_element_id("fire"); // decent stand-in
+            PackedByteArray queue_data;
+            queue_data.resize(16 + VoxelWorldRIDs::MAX_EXPLOSIONS_PER_TICK * sizeof(GpuExplosion));
+            uint32_t *header = reinterpret_cast<uint32_t *>(queue_data.ptrw());
+            header[0] = (uint32_t)_pending_explosions.size();
+            header[1] = spark_id > 0 ? (uint32_t)spark_id : 0u;
+            std::memcpy(queue_data.ptrw() + 16, _pending_explosions.data(),
+                        _pending_explosions.size() * sizeof(GpuExplosion));
+            _rd->buffer_update(_voxel_world_rids.explosions, 0, queue_data.size(), queue_data);
+            _update_pass->run_explosions();
+            _pending_explosions.clear();
+        }
+
         // movement tick: read prev, write cur; cleanup erases the moved-away
         // dynamics from prev so it can be the write target of the next flip
         _update_pass->run_movement();
@@ -441,7 +505,8 @@ void VoxelWorld::update_point_lights()
         Color color = light->get_color();
         float energy = light->get_param(Light3D::PARAM_ENERGY);
         lights[light_count].position = Vector4(pos.x, pos.y, pos.z, light->get_param(Light3D::PARAM_RANGE));
-        lights[light_count].color = Vector4(color.r * energy, color.g * energy, color.b * energy, 0.0f);
+        lights[light_count].color = Vector4(color.r * energy, color.g * energy, color.b * energy,
+                                            light->get_param(Light3D::PARAM_SIZE));
         light_count++;
     }
     reinterpret_cast<int32_t *>(data.ptrw())[0] = light_count;
@@ -496,6 +561,51 @@ void VoxelWorld::update_generation()
 
     if (_update_pass != nullptr)
         _update_pass->run_cleanup();
+}
+
+Dictionary VoxelWorld::census_box(const Vector3i &box_min, const Vector3i &box_max, const int type_id)
+{
+    Dictionary result;
+    result["count"] = 0;
+    result["max_y"] = -1;
+    result["min_y"] = 9999;
+
+    if (!_initialized || _rd == nullptr)
+        return result;
+
+    // One whole-buffer readback instead of a synchronous buffer_get_data per
+    // voxel — box scans from script (tests) otherwise stall the frame for
+    // every single cell.
+    RID buffer_rid = (_voxel_properties.frame % 2 == 0) ? _voxel_world_rids.voxel_data : _voxel_world_rids.voxel_data2;
+    PackedByteArray data = _rd->buffer_get_data(buffer_rid);
+    const Voxel *voxels = reinterpret_cast<const Voxel *>(data.ptr());
+    const int64_t voxel_count = data.size() / sizeof(Voxel);
+
+    int count = 0;
+    int max_y = -1;
+    int min_y = 9999;
+    for (int x = box_min.x; x <= box_max.x; x++)
+        for (int y = box_min.y; y <= box_max.y; y++)
+            for (int z = box_min.z; z <= box_max.z; z++)
+            {
+                Vector3i p(x, y, z);
+                if (!_voxel_properties.isValidPos(p))
+                    continue;
+                unsigned int idx = _voxel_properties.pos_to_voxel_index(p);
+                if ((int64_t)idx >= voxel_count)
+                    continue;
+                if (voxels[idx].get_type() == type_id)
+                {
+                    count++;
+                    max_y = MAX(max_y, y);
+                    min_y = MIN(min_y, y);
+                }
+            }
+
+    result["count"] = count;
+    result["max_y"] = max_y;
+    result["min_y"] = min_y;
+    return result;
 }
 
 Dictionary VoxelWorld::get_voxel_at(const Vector3i &grid_pos)

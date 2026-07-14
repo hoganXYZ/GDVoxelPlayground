@@ -64,6 +64,11 @@ void main() {
         if(isAir ^^ isVoxelAir(voxel)) {
             setBothVoxelBuffers(voxel_index, voxel);
             setBothAux(voxel_index, defaultAuxFor(getVoxelType(voxel)));
+            // Dynamics go in the CURRENT buffer ONLY: at paint time it is the
+            // prev buffer of the next movement pass. The other buffer is that
+            // pass's atomicOr write target and MUST stay zero — writing both
+            // "for symmetry" would corrupt concurrent flag ORs with garbage.
+            setDynamics(voxel_index, defaultDynamicsFor(getVoxelType(voxel)));
         }
     }
 }

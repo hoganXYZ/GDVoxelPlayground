@@ -454,3 +454,83 @@ new elements light correctly without touching the raymarcher.
   the right kind — cheap early-outs from the element table.
 - Full pipeline is 3–4 dispatches over the grid vs. today's 4 — same order of
   magnitude; the win is that adding the *N*-th element costs zero dispatches.
+- "Stutters even when nothing's been edited":
+The collider readback (most likely if the stutter is periodic). VoxelWorldCollider::update() runs every physics tick and periodically fetches the solid mask back from the GPU and rebuilds a ConcavePolygonShape3D — synchronous readbacks are exactly the kind of thing that produces a regular hitch rhythm. Quick test: temporarily remove/disable the VoxelWorldCollider node in demo.tscn. Stutter is now gone.
+
+## 4. Falling-sand physics (FallingSandJava port)
+
+Movement mechanics ported from DavidMcLaughlin208/FallingSandJava ("Exploring
+the Tech and Design of Noita"), adapted from its CPU single-buffer matrix
+traversal to this engine's double-buffered checkerboard CA. The Java traversal
+machinery (bottom-up rows, shuffled X order, per-element stepped bit) solves
+concurrency problems the checkerboard + CAS scheme already solves; what is
+ported is the movement *semantics*.
+
+### 4.1 Per-voxel dynamics channel
+
+`voxel_dynamics`/`voxel_dynamics2` (set 1, bindings 13/14) — one u32 per
+voxel, double-buffered like aux:
+
+```
+bits  0-7   vx   signed 8-bit velocity, 1/16 cell-per-tick quanta
+bits  8-15  vy   (negative = down; Java vel * 16/60 = quanta)
+bits 16-23  vz
+bit  24     DYN_FREEFALLING  in motion; cleared at rest, set by moves
+bit  25     DYN_PARTICLE     ballistic flight, ignores normal CA rules
+bit  26     DYN_WOKEN        a neighbor moved; roll vs inertial_resistance
+```
+
+Concurrency contract: cleanup zeroes the consumed dynamics buffer every
+half-tick, and ALL movement-pass writes to the current dynamics buffer go
+through `atomicOr` — the cell owner ORs its full word into zero while lateral
+neighbors concurrently OR single DYN_WOKEN bits. Commutative, no lost updates.
+Edits initialize dynamics in the CURRENT buffer only (`defaultDynamicsFor`);
+writing both would corrupt the OR contract.
+
+### 4.2 Movement (movement.glsl)
+
+- `moveAlongVelocity`: 3D Bresenham walk along the velocity through prev-buffer
+  air (sub-cell remainder moves one extra cell probabilistically instead of a
+  stored accumulator); claims the furthest reachable cell, retrying nearer on
+  lost CAS races. Density swaps stay single-step straight-vertical so the
+  checkerboard swap invariant holds.
+- Powders: gravity (−1.33 quanta/tick), multi-cell fall, landing converts fall
+  speed to a lateral lean (max(|vy|/31, 28) quanta) scaled by
+  `friction_factor * support.friction_factor`, then diagonal-down → sideways →
+  rest. Settled grains (!FREEFALLING) only fall straight down; movers wake the
+  4 lateral powder neighbors of their origin (DYN_WOKEN), which roll against
+  `inertial_resistance` next tick. This keeps piles asleep.
+- Liquids: same fall; on landing, dispersion walk up to
+  `dispersion_rate ± ` cells sideways preferring the first cell with air below.
+- Gases: `dispersion_rate` = random-walk attempts per tick.
+- Particles (DYN_PARTICLE): fly ballistically through air only, keep their real
+  element type byte (rendering + reconstitution are free), convert back to the
+  normal element when fully blocked.
+
+### 4.3 Explosions
+
+`world.add_explosion(grid_center, radius, strength)` (GDScript) queues up to 16
+per tick into an SSBO (set 1 binding 15); `explosion_pass.glsl` runs before
+movement on the same flip, own-cell-write-only. Each affected voxel marches
+toward the blast center through the prev buffer for occlusion (a cell with
+`explosion_resistance >= strength` shadows everything behind it — replaces
+Java's serial rays + visited cache). Inner zone (dist < localRadius/2):
+destroyed if ER < strength (70% explosion_spark / 30% air), else scorched +
+heated. Throw ring (+localRadius/4): powders/liquids become ballistic particles
+with outward velocity `dir * radius * 4/3` quanta. The spark element is looked
+up by name ("explosion_spark", falling back to "fire").
+
+### 4.4 Element properties
+
+`VoxelElement` gained `inertial_resistance` (sand 0.1, dirt-likes 0.8, statics
+1.1 = never wakes), `friction_factor`, `dispersion_rate` (water 5, oil 4,
+lava 1, gases 2), `explosion_resistance` (default 1, stone/glass/ice 4,
+water/gases 0). GpuElementDef is 96 bytes — keep the C++ struct, GLSL struct,
+and static_assert in lockstep.
+
+Omitted from the Java reference (flagged): landing vel.y transfer into the
+support neighbor (unsafe cross-cell scatter under the atomicOr contract);
+particles stop at gases instead of swapping through them.
+
+Tests: `res://tests/test_ca.tscn` — paint/step/census assertions with
+mass-conservation tripwires (`world.census_box` batches the readback).
