@@ -15,7 +15,8 @@ VoxelEditPass::VoxelEditPass(String shader_path, RenderingDevice * rd, VoxelWorl
         0.1f, // near
         100.0f, // range
         100.0f, // radius
-        0 //value
+        0, //value
+        Vector4(0, 0, 0, 0) // velocity (unused for ordinary edits)
     };
 
     ray_cast_shader = new ComputeShader("res://addons/voxel_playground/src/shaders/voxel_edit/raycast.glsl", rd);
@@ -45,6 +46,7 @@ void VoxelEditPass::edit_using_raycast(const Vector3 &camera_origin, const Vecto
     _edit_params.far = range;
     _edit_params.radius = radius;
     _edit_params.value = value;
+    _edit_params.velocity = Vector4(0, 0, 0, 0); // ordinary edit, no launch velocity
 
     //raycast
     ray_cast_shader->update_storage_buffer_uniform(_edit_params_rid, _edit_params.to_packed_byte_array());
@@ -78,12 +80,43 @@ void VoxelEditPass::edit_at(const Vector3 &position, const float radius, const i
     _edit_params.far = 100.0f;
     _edit_params.radius = radius;
     _edit_params.value = value;
+    _edit_params.velocity = Vector4(0, 0, 0, 0); // ordinary paint, no launch velocity
 
     ray_cast_shader->update_storage_buffer_uniform(_edit_params_rid, _edit_params.to_packed_byte_array());
 
     const Vector3 group_size = Vector3(8, 8, 8);
     const Vector3i group_count = Vector3i(std::ceil(2.0f * radius / group_size.x), std::ceil(2.0f * radius / group_size.y), std::ceil(2.0f * radius / group_size.z));
     edit_shader->compute(group_count, false);
+}
+
+void VoxelEditPass::edit_at_velocity(const Vector3 &position, const float radius, const int value,
+                                     const Vector3 &velocity)
+{
+    if (ray_cast_shader == nullptr || !ray_cast_shader->check_ready() || edit_shader == nullptr ||
+        !edit_shader->check_ready())
+    {
+        UtilityFunctions::printerr("VoxelEditPass::edit_at_velocity() edit shader is null or not ready");
+        return;
+    }
+
+    // same dispatch as edit_at, but the spawned voxels carry an initial velocity
+    // and the w = 1 flag tells sphere_edit.glsl to launch them as particles
+    _edit_params.camera_origin = Vector4(position.x, position.y, position.z, 1.0f);
+    _edit_params.camera_direction = Vector4(0, -1, 0, 0);
+    _edit_params.hit_position = Vector4(position.x, position.y, position.z, 1.0f);
+    _edit_params.near = 0.1f;
+    _edit_params.far = 100.0f;
+    _edit_params.radius = radius;
+    _edit_params.value = value;
+    _edit_params.velocity = Vector4(velocity.x, velocity.y, velocity.z, 1.0f);
+
+    ray_cast_shader->update_storage_buffer_uniform(_edit_params_rid, _edit_params.to_packed_byte_array());
+
+    const Vector3 group_size = Vector3(8, 8, 8);
+    const Vector3i group_count = Vector3i(std::ceil(2.0f * radius / group_size.x), std::ceil(2.0f * radius / group_size.y), std::ceil(2.0f * radius / group_size.z));
+    edit_shader->compute(group_count, false);
+
+    _edit_params.velocity = Vector4(0, 0, 0, 0); // don't let the next edit inherit it
 }
 
 Vector3 VoxelEditPass::raycast(const Vector3 &camera_origin, const Vector3 &camera_direction, const float range)

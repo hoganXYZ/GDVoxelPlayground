@@ -23,6 +23,9 @@ class VoxelEditPass
         float far;
         float radius;
         unsigned int value;
+        // xyz = initial velocity in quanta (1/16 cell/tick); w > 0.5 spawns the
+        // edited voxels as ballistic particles. Zero for ordinary edits.
+        Vector4 velocity;
 
         PackedByteArray to_packed_byte_array()
         {
@@ -40,6 +43,10 @@ class VoxelEditPass
     void edit_using_raycast(const Vector3 &camera_origin, const Vector3 &camera_direction, const float radius,
                             const float range, const int value);
     void edit_at(const Vector3 &position, const float radius, const int value);
+    // Like edit_at, but the spawned voxels launch as ballistic particles with
+    // the given velocity (in quanta, 1/16 cell/tick). Only elements flagged
+    // dynamic actually fly; static elements ignore the velocity.
+    void edit_at_velocity(const Vector3 &position, const float radius, const int value, const Vector3 &velocity);
     Vector3 raycast(const Vector3 &camera_origin, const Vector3 &camera_direction, const float range);
 
   private:

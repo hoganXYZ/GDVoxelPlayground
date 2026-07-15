@@ -5,6 +5,7 @@
 [ext_resource type="VoxelElementSet" uid="uid://chli622s30d1i" path="res://element_sets/new_voxel_element_set.tres" id="2_s1s6j"]
 [ext_resource type="Script" uid="uid://ojind5ypwi07" path="res://demo/auxiliary/fps_meter.gd" id="2_ytiva"]
 [ext_resource type="Script" uid="uid://cuinm7x4gnsph" path="res://demo/auxiliary/inventory/inventory.gd" id="3_j5lb4"]
+[ext_resource type="Texture2D" uid="uid://bduport8u25ue" path="res://icon.svg" id="4_onvmd"]
 [ext_resource type="FontFile" uid="uid://csaawwddp76yf" path="res://demo/assets/tinypixel.otf" id="4_u10mr"]
 [ext_resource type="Script" uid="uid://dhshp11gr8mto" path="res://demo/auxiliary/texture_projector.gd" id="5_txproj"]
 
@@ -43,11 +44,10 @@ transform = Transform3D(1, 1.11711e-08, 2.98023e-08, -5.58793e-09, 1, -1.66533e-
 [node name="CollisionShape3D" type="CollisionShape3D" parent="VoxelWorldCollider/StaticBody3D" unique_id=290150999]
 shape = SubResource("ConcavePolygonShape3D_s1s6j")
 
-[node name="VoxelWorld" type="VoxelWorld" parent="." unique_id=1681248503 node_paths=PackedStringArray("voxel_world_collider", "player_node")]
+[node name="VoxelWorld" type="VoxelWorld" parent="." unique_id=1681248503 node_paths=PackedStringArray("player_node")]
 generator = SubResource("VoxelWorldCPUGenerator_u10mr")
 brick_map_size = Vector3i(32, 8, 32)
 scale = 0.25
-voxel_world_collider = NodePath("")
 player_node = NodePath("../CharacterBody3D")
 ground_color = Color(0, 0, 0, 1)
 sky_color = Color(0, 0, 0, 1)
@@ -90,6 +90,10 @@ transform = Transform3D(0.99999994, 0, 0, 0, -4.3711385e-08, 0.99999994, 0, -1, 
 script = ExtResource("2_j5lb4")
 world = NodePath("../../../VoxelWorld")
 voxel_camera = NodePath("..")
+explosion_strength = 10.0
+particle_element_name = "sand"
+stamp_texture = ExtResource("4_onvmd")
+stamp_place_on_surface = true
 
 [node name="TextureRect" type="TextureRect" parent="cam_piv/VoxelCamera" unique_id=245812517]
 anchors_preset = 15

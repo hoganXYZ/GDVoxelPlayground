@@ -117,6 +117,11 @@ public:
     // paint a sphere directly at a grid-space position (no raycast); same
     // `value` element encoding as edit_world
     void edit_world_at(const Vector3 &grid_position, const float radius, const int value);
+    // like edit_world_at, but the spawned voxels launch as ballistic particles
+    // with `velocity` in grid cells per tick. Only dynamic elements (powders,
+    // liquids, gases) actually fly; static elements ignore the velocity.
+    void edit_world_at_velocity(const Vector3 &grid_position, const float radius, const int value,
+                                const Vector3 &velocity);
     // queue an explosion at a grid-space center; executed by the GPU explosion
     // pass at the start of the next simulation tick (max 16 per tick)
     void add_explosion(const Vector3 &grid_center, const float radius, const float strength);

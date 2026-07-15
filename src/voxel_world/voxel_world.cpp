@@ -42,6 +42,15 @@ void VoxelWorld::edit_world_at(const Vector3 &grid_position, const float radius,
     _edit_pass->edit_at(grid_position, radius, value);
 }
 
+void VoxelWorld::edit_world_at_velocity(const Vector3 &grid_position, const float radius, const int value,
+                                        const Vector3 &velocity)
+{
+    if (_edit_pass == nullptr)
+        return;
+    // GDScript velocity is in grid cells/tick; dynamics store quanta of 1/16 cell/tick
+    _edit_pass->edit_at_velocity(grid_position, radius, value, velocity * 16.0f);
+}
+
 void VoxelWorld::add_explosion(const Vector3 &grid_center, const float radius, const float strength)
 {
     if ((int)_pending_explosions.size() >= VoxelWorldRIDs::MAX_EXPLOSIONS_PER_TICK)
@@ -187,6 +196,8 @@ void VoxelWorld::_bind_methods()
                          &VoxelWorld::edit_world_smooth);
     ClassDB::bind_method(D_METHOD("edit_world_at", "grid_position", "radius", "value"),
                          &VoxelWorld::edit_world_at);
+    ClassDB::bind_method(D_METHOD("edit_world_at_velocity", "grid_position", "radius", "value", "velocity"),
+                         &VoxelWorld::edit_world_at_velocity);
     ClassDB::bind_method(D_METHOD("add_explosion", "grid_center", "radius", "strength"),
                          &VoxelWorld::add_explosion);
     ClassDB::bind_method(D_METHOD("raycast_world", "camera_origin", "camera_direction", "range"),

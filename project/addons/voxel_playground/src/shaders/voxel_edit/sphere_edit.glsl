@@ -11,8 +11,11 @@ layout(std430, set = 1, binding = 0) restrict buffer Params {
     vec4 hit_position;
     float near;
     float far;
-    float radius;  
+    float radius;
     uint value;
+    // xyz = initial velocity in quanta (1/16 cell/tick); w > 0.5 spawns the
+    // voxels as ballistic particles (DYN_PARTICLE) instead of a normal paint.
+    vec4 velocity;
 } params;
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
@@ -68,7 +71,13 @@ void main() {
             // prev buffer of the next movement pass. The other buffer is that
             // pass's atomicOr write target and MUST stay zero — writing both
             // "for symmetry" would corrupt concurrent flag ORs with garbage.
-            setDynamics(voxel_index, defaultDynamicsFor(getVoxelType(voxel)));
+            uint dynamics = defaultDynamicsFor(getVoxelType(voxel));
+            if (params.velocity.w > 0.5 && isTypeDynamic(getVoxelType(voxel))) {
+                // launch as a ballistic particle with the requested velocity
+                dynamics = packDyn(ivec3(round(params.velocity.xyz)),
+                                   DYN_PARTICLE | DYN_FREEFALLING);
+            }
+            setDynamics(voxel_index, dynamics);
         }
     }
 }
