@@ -9,8 +9,6 @@
 [ext_resource type="FontFile" uid="uid://csaawwddp76yf" path="res://demo/assets/tinypixel.otf" id="4_u10mr"]
 [ext_resource type="Script" uid="uid://dhshp11gr8mto" path="res://demo/auxiliary/texture_projector.gd" id="5_txproj"]
 
-[sub_resource type="ConcavePolygonShape3D" id="ConcavePolygonShape3D_s1s6j"]
-
 [sub_resource type="VoxelWorldCPUGenerator" id="VoxelWorldCPUGenerator_u10mr"]
 generator = ExtResource("1_onvmd")
 
@@ -32,21 +30,9 @@ adjustment_saturation = 1.1
 
 [node name="World" type="Node3D" unique_id=517888293]
 
-[node name="VoxelWorldCollider" type="VoxelWorldCollider" parent="." unique_id=1775474401 node_paths=PackedStringArray("collision_shape")]
-collider_size = Vector3i(24, 32, 24)
-collision_shape = NodePath("StaticBody3D/CollisionShape3D")
-process_mode = 4
-transform = Transform3D(0.999642, 0.017435, 0.0203286, -0.0174314, 0.999848, -0.000354483, -0.0203317, -2.32831e-10, 0.999794, 0, 0, 0)
-
-[node name="StaticBody3D" type="StaticBody3D" parent="VoxelWorldCollider" unique_id=267332561]
-transform = Transform3D(1, 1.11711e-08, 2.98023e-08, -5.58793e-09, 1, -1.66533e-16, -1.11759e-08, 2.32783e-10, 1, 0, 0, 0)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="VoxelWorldCollider/StaticBody3D" unique_id=290150999]
-shape = SubResource("ConcavePolygonShape3D_s1s6j")
-
 [node name="VoxelWorld" type="VoxelWorld" parent="." unique_id=1681248503 node_paths=PackedStringArray("player_node")]
 generator = SubResource("VoxelWorldCPUGenerator_u10mr")
-brick_map_size = Vector3i(32, 8, 32)
+brick_map_size = Vector3i(32, 16, 32)
 scale = 0.25
 player_node = NodePath("../CharacterBody3D")
 ground_color = Color(0, 0, 0, 1)
@@ -91,7 +77,12 @@ script = ExtResource("2_j5lb4")
 world = NodePath("../../../VoxelWorld")
 voxel_camera = NodePath("..")
 explosion_strength = 10.0
-particle_element_name = "sand"
+particle_element_name = "mushroom_spore"
+particle_count = 2
+particle_speed = 1.5
+particle_drag_speed_scale = 0.1
+particle_up_speed = 0.2
+particle_spread = 0.0
 stamp_texture = ExtResource("4_onvmd")
 stamp_place_on_surface = true
 

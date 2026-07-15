@@ -34,8 +34,13 @@ enum Brush { PLACE, SMOOTH, EXPLOSION, PARTICLES, Y_LEVEL, STAMP }
 @export var particle_element_name: String = "explosion_spark"
 ## Particles spawned per emission tick.
 @export var particle_count: int = 6
-## Horizontal launch speed toward the drag direction (grid cells per tick).
+## Base horizontal launch speed toward the drag direction (grid cells per tick).
+## Drag distance from the launch point is added on top of this (see
+## particle_drag_speed_scale).
 @export var particle_speed: float = 3.0
+## Extra horizontal speed added per grid cell of drag distance from the launch
+## point. 0 = fixed particle_speed regardless of how far you drag.
+@export var particle_drag_speed_scale: float = 0.5
 ## Upward launch speed (grid cells per tick).
 @export var particle_up_speed: float = 4.0
 ## Radius of each particle blob.
@@ -83,6 +88,11 @@ var selected_type: int = 1  # element id painted by left click
 var selected_color: Color = MATERIAL_DEFAULT_COLORS[1]
 var cooldown := 0.0
 var _emit_cooldown := 0.0
+
+# Particle brush drag state: the launch point is locked in on the first click,
+# then the cursor is dragged away from it to set aim direction and speed.
+var _particle_launch := Vector3.ZERO
+var _particle_launching := false
 
 # 2D overlay showing the stamp texture under the cursor (the oblique renderer
 # doesn't draw normal 3D meshes, so the preview has to live on the output rect).
@@ -298,31 +308,51 @@ func _process_explosion(ray: Dictionary) -> void:
 ## C++ velocity-spawn path (edit_world_at_velocity): each blob becomes a real
 ## ballistic particle that flies along its initial velocity and arcs under
 ## gravity, instead of a static blob that only rises.
+##
+## The launch point is locked in on the first click (the surface hit under the
+## cursor). While the button is held, dragging the cursor away from that point
+## sets the aim direction, and the drag distance adds to the launch speed
+## (particle_speed + distance * particle_drag_speed_scale).
 func _process_particles(ray: Dictionary) -> void:
 	if not Input.is_action_pressed("left_click"):
+		_particle_launching = false
 		return
 
-	var launch: Vector3 = world.raycast_world(ray.origin, ray.dir, RAY_DISTANCE)
-	if launch.x < 0:
-		return  # nothing under the cursor to launch from
+	# First frame of the click: lock in the launch point under the cursor.
+	if not _particle_launching:
+		var hit: Vector3 = world.raycast_world(ray.origin, ray.dir, RAY_DISTANCE)
+		if hit.x < 0:
+			return  # nothing under the cursor to launch from
+		_particle_launch = hit
+		_particle_launching = true
+
+	var launch := _particle_launch
 
 	if _emit_cooldown > 0.0:
 		return
 	_emit_cooldown = 0.03
 
-	# Horizontal aim toward the cursor, projected onto the launch's y-plane.
+	# Aim toward wherever the cursor is now, projected onto the launch's y-plane.
+	# The drag distance scales the horizontal speed: drag farther, launch harder.
 	var aim := Vector3.ZERO
+	var speed := particle_speed
+	var up_speed := particle_up_speed
 	var target := _grid_plane_hit(ray, launch.y)
 	if not target.is_empty():
 		var flat: Vector3 = target.pos - launch
 		flat.y = 0.0
-		if flat.length() > 0.001:
-			aim = flat.normalized()
+		var drag_dist := flat.length()
+		if drag_dist > 0.001:
+			aim = flat / drag_dist
+			speed += drag_dist * (particle_drag_speed_scale * 0.2)
+			up_speed += drag_dist * particle_drag_speed_scale
+			print(up_speed)
 
 	var value := _particle_value()
-	var base_vel := aim * particle_speed + Vector3.UP * particle_up_speed
+	var base_vel := aim * speed + Vector3.UP * up_speed
 	# lift the spawn point slightly so particles don't start buried in the surface
 	var origin := launch + Vector3.UP * 2.0
+
 	for i in range(particle_count):
 		var jitter_pos := Vector3(
 			randf_range(-particle_spread, particle_spread),
